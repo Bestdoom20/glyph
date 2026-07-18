@@ -38,7 +38,9 @@ async function chat(req, res) {
     const r = await fetch('http://localhost:8000/adler/complete', {
       method: 'POST',
       headers: { 'X-API-Key': key, 'content-type': 'application/json' },
-      body: JSON.stringify({ task: prompt, budget_limit: 0.02 }),
+      // ponytail: force_model because Nexus Tier-C default slug is stale (404 on OpenRouter);
+      // remove once Tier-C default is fixed in nexus config
+      body: JSON.stringify({ task: prompt, budget_limit: 0.02, force_model: 'gemini-2-5-flash', max_output_tokens: 350 }),
       signal: AbortSignal.timeout(60000),
     });
     const d = await r.json();
