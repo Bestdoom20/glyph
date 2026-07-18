@@ -1,8 +1,5 @@
-// GLYPH — living kaomoji face. P0 stub: static face render.
-export function mount(el: HTMLElement) {
-  const face = document.createElement('div');
-  face.textContent = '・_・';
-  face.style.font = "700 64px/1 ui-monospace, 'Cascadia Mono', monospace";
-  el.appendChild(face);
-  return face;
-}
+export { GlyphEngine, glyph, compose, idleStage, weightedPick, type GlyphOptions } from './engine';
+export { EXPRESSIONS, PERSONALITIES, type Expression, type Beat, type Channel } from './expressions';
+export { analyze, mirrorEmoji } from './emotion';
+export { drive, reveal } from './stream';
+export { GlyphFace } from './element';

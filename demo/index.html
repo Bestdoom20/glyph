@@ -5,13 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GLYPH playground</title>
 <style>
-  body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center;
-         justify-content:center; background:#0d0f14; color:#dfe3ea; font-family:ui-monospace,monospace; }
-  #stage { padding:48px; }
+  body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; gap:20px;
+         padding:32px 16px; box-sizing:border-box; background:#0d0f14; color:#dfe3ea;
+         font-family:ui-monospace,'Cascadia Mono',monospace; }
+  h1 { font-size:15px; letter-spacing:.3em; color:#5b667a; margin:0; }
+  #stage { padding:28px 48px; background:#12151d; border:1px solid #1e2330; border-radius:18px;
+           --glyph-size:72px; color:#7ee0ff; cursor:pointer; }
+  #states { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; max-width:640px; }
+  button, select, input { background:#1a1f2b; color:#dfe3ea; border:1px solid #2a3145; border-radius:8px;
+           padding:6px 12px; font:inherit; font-size:12px; cursor:pointer; }
+  button:hover { border-color:#7ee0ff; }
+  #chat { display:flex; gap:8px; width:min(560px,92vw); }
+  #prompt { flex:1; cursor:text; }
+  #transcript { width:min(560px,92vw); min-height:80px; white-space:pre-wrap; font-size:13px;
+                color:#9aa4b8; background:#12151d; border:1px solid #1e2330; border-radius:12px; padding:14px; }
+  #meta { font-size:11px; color:#5b667a; }
+  label { font-size:12px; color:#5b667a; }
 </style>
 </head>
 <body>
+<h1>G L Y P H</h1>
 <div id="stage"></div>
+<div id="states"></div>
+<div>
+  <label>personality <select id="persona"></select></label>
+  <button id="fake">▶ fake stream</button>
+</div>
+<form id="chat">
+  <input id="prompt" placeholder="ask something — face reacts live" autocomplete="off">
+  <button type="submit">send</button>
+</form>
+<div id="transcript"></div>
+<div id="meta"></div>
 <script src="bundle.js"></script>
 </body>
 </html>
