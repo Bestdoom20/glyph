@@ -1,0 +1,44 @@
+{
+  "name": "@bestdoom20/glyph",
+  "version": "0.1.0",
+  "description": "GLYPH — a living kaomoji face that replaces the '...' typing dots in any AI chat",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup",
+    "demo": "esbuild demo/main.ts --bundle --outfile=demo/bundle.js && node demo/server.mjs",
+    "demo:build": "esbuild demo/main.ts --bundle --outfile=demo/bundle.js",
+    "test": "esbuild test/selfcheck.ts --bundle --platform=node --format=esm --outfile=test/.selfcheck.mjs && node test/.selfcheck.mjs"
+  },
+  "keywords": ["ai", "chatbot", "kaomoji", "typing-indicator", "web-components", "react", "ascii-face"],
+  "repository": "github:Bestdoom20/glyph",
+  "peerDependencies": {
+    "react": ">=17"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "esbuild": "^0.23.0",
+    "react": "^18.3.1",
+    "tsup": "^8.1.0",
+    "typescript": "^5.5.3"
+  }
+}

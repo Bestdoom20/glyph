@@ -1,0 +1,5 @@
+node_modules/
+dist/
+demo/bundle.js
+test/.selfcheck.mjs
+.env
