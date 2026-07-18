@@ -1,0 +1,16 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "glyph-face",
+  "type": "registry:component",
+  "title": "GLYPH — living kaomoji face",
+  "description": "A living kaomoji face that replaces the '...' typing dots in any AI chat. Blinks, sleeps, follows the cursor, and talks for exactly as long as your AI generates — reacting to the streamed content.",
+  "dependencies": ["@bestdoom20/glyph"],
+  "files": [
+    {
+      "path": "components/glyph-face.tsx",
+      "type": "registry:component",
+      "content": "import { Glyph } from '@bestdoom20/glyph/react';\nexport { Glyph as GlyphFace };\n"
+    }
+  ],
+  "categories": ["ai", "chat", "loading"]
+}
