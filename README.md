@@ -1,8 +1,24 @@
-# GLYPH
+<div align="center">
 
-<img src="assets/glyph.svg" alt="GLYPH — a living kaomoji face" width="360">
+<img src="assets/glyph.svg" width="400" alt="GLYPH — a living kaomoji face">
 
-A living kaomoji face that replaces the "..." typing dots in any AI chat.
+# G L Y P H
+
+**A living kaomoji face that replaces the "..." typing dots in any AI chat.**
+
+[![MIT license](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![zero dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen?style=flat-square)](package.json)
+[![web component](https://img.shields.io/badge/%3Cglyph--face%3E-web%20component-7ee0ff?style=flat-square)](#use--under-5-lines)
+[![react ready](https://img.shields.io/badge/react-ready-61dafb?style=flat-square)](#use--under-5-lines)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-ff69b4?style=flat-square)](https://github.com/Bestdoom20/glyph/pulls)
+
+**[▶ Live Playground](https://bestdoom20.github.io/glyph/)** · [Install](#install) · [API](#api) · [Demo](#demo)
+
+`・_・` &nbsp;→&nbsp; `-_-` &nbsp;→&nbsp; `・o・` &nbsp;→&nbsp; `・ω・` &nbsp;→&nbsp; `^‿^` &nbsp;→&nbsp; `u_u z`
+
+</div>
+
+---
 
 `・_・` breathes, blinks, looks around, follows your cursor, and falls asleep if you ignore it. When your AI generates, it talks — `・o・ ・ω・ ・‿・` — for exactly as long as tokens flow, reacting to what it's saying: `WOW!!` → `O_O!`, an error → `>_< ⚡`, an emoji in the stream gets mirrored on its face.
 
@@ -46,6 +62,22 @@ await drive(g, openaiStream); // think → say per delta → done
 
 Non-streaming API? `reveal(g, fullText)` plays it back word-by-word so the face still lives.
 
+## The cast
+
+<div align="center">
+
+| `・_・` | `˘_˘ 💭` | `・ω・` | `^‿^ ♪` | `♡_♡ ♥` | `O_O !` |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| idle | think | talk | happy | love | shock |
+
+| `o_O ?` | `;_;` | `>_< ⚡` | `u_u z` | `¬‿¬` | `@_@` |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| confused | sad | error | sleep | smug | dizzy |
+
+</div>
+
+~17 expressions built in. Add your own: one entry in the `EXPRESSIONS` registry — eyes template + mouth frames, `%` marks the mouth slot.
+
 ## What it does on its own
 
 - **Breathing + random blinks** — always on, the core "alive" cue
@@ -65,8 +97,6 @@ Non-streaming API? `reveal(g, fullText)` plays it back word-by-word so the face 
 | `g.setPersonality(name)` | swap personality live |
 | `g.destroy()` | clean up |
 
-~17 expressions built in (`idle think talk happy love shock confused sad error sleep wake wink smug shy dizzy giggle hum` …). Add your own: one entry in the `EXPRESSIONS` registry — eyes template + mouth frames, `%` marks the mouth slot.
-
 Host emotion tag is optional — GLYPH is purely text-reactive by default; `emotion="proud"` overrides the heuristic when you *do* know better.
 
 ## Demo
@@ -77,6 +107,12 @@ npm install && npm run demo   # → http://localhost:8199
 
 Playground: every state as a button, personality switcher, fake token stream, and live chat (`/api/chat` proxies to your LLM server-side — API key never touches the browser).
 
-## License
+---
+
+<div align="center">
 
 MIT © [Bestdoom20](https://github.com/Bestdoom20)
+
+`(=^･ω･^=)` *thanks for stopping by*
+
+</div>
