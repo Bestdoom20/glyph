@@ -89,7 +89,7 @@ Non-streaming API? `reveal(g, fullText)` plays it back word-by-word so the face 
 
 ## GLYPH-LCD — the face on real hardware
 
-[`lcd/glyph_lcd/glyph_lcd.ino`](lcd/glyph_lcd/glyph_lcd.ino) puts GLYPH on a **1602 I2C LCD** (HD44780 + PCF8574 backpack) driven by an Arduino Uno or clone. 30 faces: `idle happy joy love sad cry shock angry annoyed smug excited dizzy sleepy sleep kiss tongue evil cute confused uwu sparkle owo worried robot robohappy roboalert robosad roboangry grumpy content`.
+[`lcd/glyph_lcd/glyph_lcd.ino`](lcd/glyph_lcd/glyph_lcd.ino) puts GLYPH on a **1602 I2C LCD** (HD44780 + PCF8574 backpack) driven by an Arduino Uno or clone. 38 faces: `idle happy joy love sad cry shock angry annoyed smug excited dizzy sleepy sleep kiss tongue evil cute confused uwu sparkle owo worried robot robohappy roboalert robosad roboangry grumpy content browidle browhappy browwow browangry browsad browskeptic browtired browcry`.
 
 ```
 LCD GND -> GND   VCC -> 5V   SDA -> A4   SCL -> A5      library: LiquidCrystal_I2C
@@ -101,7 +101,7 @@ MODE push button: one leg -> D2, other leg -> GND (press = next mode)
 
 **Alive, not scripted.** A two-axis feeling (valence sad↔happy, arousal calm↔excited) drifts back to each mode's resting point. Words push it, through a small lexicon of how each word moves the two axes and what kind of word it is. The face is picked from that feeling per mode, and has to hold 250 ms so it doesn't flicker. The feeling also drives body language: blink rate and blink speed, darting or steady eyes, voice pitch and pace. Praise lifts its resting mood for minutes, being ignored makes it bored and then sleepy, and tired moods yawn. **You vs it:** `> text` is you talking. It stops mid-sentence, nods along per word, then reacts: concern if you're sad, hurt if you're hostile, perks up at its name, curious at questions, startled by CAPS. After a thinking beat, its reply plays in the mood you left it in. `:typing` makes it watch you type, with thinking dots. **Animation:** faces change with anticipation (squash the old face, squash into the new), excited faces pop wide first, eyes make tiny 1 px saccades, and the eyes squint on shouted words.
 
-**Modes** (`:mode name` or the MODE button): `classic`, `kawaii` (UwU / ✧ / >ω<, permanent blush, bouncy, higher voice, hums), `robot` (■ eyes, monotone voice), `grumpy` (⊖ eyes, sighs), `sleepy`. Each mode is one data row: a face per feeling cell, resting mood, voice and behaviour flags.
+**Profiles** (`:mode name` or the MODE button): `basic`, `kawaii` (UwU / ✧ / >ω<, permanent blush, a beauty mark on the right cheek, bouncy, higher voice, hums), `robot` (■ eyes, monotone voice), `grumpy` (⊖ eyes, sighs), `brows` (eyebrow eyes: flat, raised, angry, worried, one-brow skeptic, tired; blinks leave the brows alone). Each mode is one data row: a face per feeling cell, resting mood, voice and behaviour flags.
 
 **Voice: mumble speech, not TTS** (the structure from [this devlog](https://www.youtube.com/watch?v=NaW0d7Tghw0)). Text types out on a letter timer (letter ~1/13 s, comma 3x, `.?!` 6x), and one vowel blip plays per vowel group, ~10 per second. Each blip is a stored one-period vowel waveform (buzz + 3 formants, `VOX[6][128]` from `lcd/tools/make_vowels.py`), with formants and spectral tilt fitted to measurements of the devlog's demo voices. A 16 kHz interrupt plays it at any pitch through a 62.5 kHz PWM "DAC" on D9, adding breath noise, a swell/hold/release envelope, legato glide and pitch wobble. The vowel picks the sound and never the pitch. Pitch = character voice + phrase position (drifts down, resets at punctuation) + random nudge + wobble for the old voice. `?` slides up, `!` starts high, `...` fades, CAPS shouts. Text can **stream in like LLM tokens**: it's spoken as it arrives and the pace follows the backlog (down to 45% letter time). The mouth opens with the envelope, and each phrase's words set the face. Details: [`lcd/VOICE-NOTES.md`](lcd/VOICE-NOTES.md).
 
@@ -116,14 +116,14 @@ Talk to it over Serial (9600 baud, newline):
 | `:voice guard\|default\|woman\|child\|old` | character voice presets |
 | `> text` | you talking to it (it listens and reacts, doesn't speak it) |
 | `:typing` | you're typing: it watches |
-| `:mode classic\|kawaii\|robot\|grumpy\|sleepy` | personality mode (`:mode next` cycles) |
+| `:mode basic\|kawaii\|robot\|grumpy\|brows` | personality mode (`:mode next` cycles) |
 | `:rate N` | talk as if text streamed at N tokens/s |
 
 On its own it blinks (sometimes twice), looks around, breathes (1 px bob), hums, turns sleepy after 30 s and sleeps after 60 s. Until the first line arrives it plays a demo.
 
 **How it fits on 16x2:** each eye is 2 cells (10x8 px) on row 0 and the mouth is 2 cells on row 1, which uses 6 of the 8 custom-character (CGRAM) slots. The other 2 hold effects (tears, anger mark, blush, hearts, note). The text on screen never changes. Animation works by rewriting CGRAM, and only the slots that changed get sent.
 
-**Frame budget:** one CGRAM slot costs ~13 ms on the 100 kHz PCF8574 bus, and STN crystals take ~100-200 ms to settle. In practice that means ~8-12 face changes per second. New faces are rows of 10-bit numbers in `EYES[]` / `MOUTHS[]` plus one line in `EX[]`. No `String`, no `tone()`, no Wire or LiquidCrystal_I2C. Its own I2C master and LCD driver pack whole LCD bytes into each I2C transaction (a CGRAM slot costs ~3.5 ms instead of ~13 ms). The envelope ISR only adds, and every table, string and word list lives in flash: **53% flash, 37% RAM** on an ATmega328P. Every spoken line is echoed to Serial as `> text` while it types.
+**Frame budget:** one CGRAM slot costs ~13 ms on the 100 kHz PCF8574 bus, and STN crystals take ~100-200 ms to settle. In practice that means ~8-12 face changes per second. New faces are rows of 10-bit numbers in `EYES[]` / `MOUTHS[]` plus one line in `EX[]`. No `String`, no `tone()`, no Wire or LiquidCrystal_I2C. Its own I2C master and LCD driver pack whole LCD bytes into each I2C transaction (a CGRAM slot costs ~3.5 ms instead of ~13 ms). The envelope ISR only adds, and every table, string and word list lives in flash: **55% flash, 37% RAM** on an ATmega328P. Between frames the CPU idle-sleeps, and frames where nothing changed are skipped, so a still face uses next to no CPU. The voice interrupt is all 16-bit math. Every spoken line is echoed to Serial as `> text` while it types.
 
 ## API
 

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **GLYPH-LCD profiles**: basic, kawaii (+ beauty mark, ROM middle dot), robot, grumpy, brows (new). Sleepy profile retired; its faces stay. 7 brow eyes and 8 brow faces. Each profile has its own curious face.
+- **GLYPH-LCD near-zero CPU**: idle-sleep between frames (`nap`), unchanged frames skipped by a 22-bit face key, voice ISR on a 16-bit phase (846 -> 652 bytes, ~2x fewer cycles at 16 kHz). Behaviour unchanged.
+
 - **GLYPH-LCD feelings**: a valence/arousal emotion engine with drift, praise memory, boredom and a per-word lexicon. Feeling drives the face per mode, with 250 ms hysteresis, plus blink rate, gaze, pitch and pace.
 - **GLYPH-LCD listening**: `> text` = you talking. It interrupts itself, nods along per word, then reacts with empathy, hurt, its name, curiosity or a startle. `:typing` shows a thinking face and dots.
 - **GLYPH-LCD animation**: squash transitions, pop into excited faces, micro-saccades, squint on shouted words, slow tired blinks, yawns, sighs.

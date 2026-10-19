@@ -63,6 +63,14 @@ long rnd(long lo, long hi) {
 #define STAR 15
 #define BOX 16
 #define VISOR 17
+#define BR_N 18         // brows: flat brow + dot
+#define BR_UP 19
+#define BR_A 20
+#define BR_S 21
+#define BR_H 22
+#define BR_T 23
+#define BR_RD 24
+#define FIRST_BROW 18   // rows 0-2 are a brow: blinks leave them alone
 
 const uint16_t EYES[][8] PROGMEM = {
   {0b0000000000, 0b0001111000, 0b0011111100, 0b0011111100, 0b0011111100, 0b0011111100, 0b0001111000, 0b0000000000},  // DOT  ●
@@ -83,6 +91,13 @@ const uint16_t EYES[][8] PROGMEM = {
   {0b0000110000, 0b0000110000, 0b0001111000, 0b1111111111, 0b0001111000, 0b0011001100, 0b0110000110, 0b0000000000},  // STAR ✧
   {0b0000000000, 0b0111111110, 0b0111111110, 0b0111111110, 0b0111111110, 0b0111111110, 0b0000000000, 0b0000000000},  // BOX  ■ (robot)
   {0b0000000000, 0b0000000000, 0b0000000000, 0b0111111110, 0b0111111110, 0b0000000000, 0b0000000000, 0b0000000000},  // VISOR (robot low)
+  {0b0000000000, 0b0111111110, 0b0000000000, 0b0000000000, 0b0001111000, 0b0011111100, 0b0001111000, 0b0000000000},  // BR_N  flat brow
+  {0b0011111100, 0b0100000010, 0b0000000000, 0b0001111000, 0b0010000100, 0b0010000100, 0b0001111000, 0b0000000000},  // BR_UP raised, wide eye
+  {0b1100000000, 0b0011100000, 0b0000011100, 0b0000000000, 0b0001110000, 0b0011111000, 0b0001110000, 0b0000000000},  // BR_A  angry (left; mirrored)
+  {0b0000000111, 0b0000111000, 0b0111000000, 0b0000000000, 0b0000000000, 0b0001111000, 0b0011111100, 0b0000000000},  // BR_S  worried (left; mirrored)
+  {0b0011111100, 0b0000000000, 0b0000000000, 0b0001111000, 0b0110000110, 0b1000000001, 0b0000000000, 0b0000000000},  // BR_H  raised + happy arc
+  {0b0000000000, 0b0000000000, 0b0111111110, 0b0000000000, 0b1111111111, 0b0111111110, 0b0011111100, 0b0000000000},  // BR_T  low brow, heavy lid
+  {0b0011111100, 0b0100000010, 0b0000000000, 0b0000000000, 0b0001111000, 0b0011111100, 0b0001111000, 0b0000000000},  // BR_RD one raised brow
 };
 
 // ---- mouths: same 10x8 format ----
@@ -146,7 +161,8 @@ const byte FX_NOTE[8] PROGMEM  = {0b00110, 0b00101, 0b00100, 0b00100, 0b01100, 0
 
 // ---- expressions: eyeL, eyeR, mirror right eye, mouth, effect, can blink, voice pitch %, letter time % ----
 const char NAMES[] PROGMEM = "idle|happy|joy|love|sad|cry|shock|angry|annoyed|smug|excited|dizzy|sleepy|sleep|kiss|tongue|evil|cute|confused|"
-                             "uwu|sparkle|owo|worried|robot|robohappy|roboalert|robosad|roboangry|grumpy|content";
+                             "uwu|sparkle|owo|worried|robot|robohappy|roboalert|robosad|roboangry|grumpy|content|"
+                             "browidle|browhappy|browwow|browangry|browsad|browskeptic|browtired|browcry";
 const byte EX[][8] PROGMEM = {
   {DOT, DOT, 0, CAT, FX_NONE, 1, 100, 100},          // 0 idle      ● ω ●
   {ARC, ARC, 0, SMILE, FX_NONE, 0, 115, 100},        // 1 happy     ^ ‿ ^
@@ -178,31 +194,41 @@ const byte EX[][8] PROGMEM = {
   {WEDGE, WEDGE, 1, ZIGZAG, FX_MAD, 1, 100, 90},     // 27 roboangry
   {LID, LID, 0, FROWN, FX_NONE, 0, 85, 115},         // 28 grumpy   ⊖ ︵ ⊖
   {ARC, ARC, 0, CAT, FX_NONE, 0, 100, 105},          // 29 content  ^ ω ^
+  {BR_N, BR_N, 0, FLAT, FX_NONE, 1, 100, 100},       // 30 browidle
+  {BR_H, BR_H, 0, SMILE, FX_NONE, 0, 112, 95},       // 31 browhappy
+  {BR_UP, BR_UP, 0, OH, FX_NONE, 1, 122, 95},        // 32 browwow
+  {BR_A, BR_A, 1, FROWN, FX_MAD, 1, 90, 88},         // 33 browangry
+  {BR_S, BR_S, 1, FROWN, FX_NONE, 1, 85, 120},       // 34 browsad
+  {BR_N, BR_RD, 0, SMIRK, FX_NONE, 1, 100, 105},     // 35 browskeptic  one brow up
+  {BR_T, BR_T, 0, FLAT, FX_NONE, 0, 80, 135},        // 36 browtired
+  {BR_S, BR_S, 1, OH, FX_TEARS, 0, 80, 130},         // 37 browcry
 };
 const int8_t EXV[][2] PROGMEM = {   // where each face sits in feeling space: valence, arousal (-100..100)
   {0, 0}, {55, 10}, {60, 50}, {90, 20}, {-60, -15}, {-90, 30}, {0, 80}, {-60, 70}, {-40, 30}, {30, -10},
   {70, 70}, {0, 60}, {0, -60}, {0, -95}, {60, -10}, {40, 30}, {-30, 40}, {50, 30}, {-10, 40},
-  {60, 0}, {80, 70}, {10, 60}, {-35, 40}, {0, 0}, {55, 10}, {0, 80}, {-60, -15}, {-60, 70}, {-45, 0}, {50, -50}};
-#define N_EX 30
+  {60, 0}, {80, 70}, {10, 60}, {-35, 40}, {0, 0}, {55, 10}, {0, 80}, {-60, -15}, {-60, 70}, {-45, 0}, {50, -50},
+  {0, 0}, {55, 10}, {10, 75}, {-60, 70}, {-55, -10}, {-10, 30}, {0, -60}, {-85, 30}};
+#define N_EX 38
 #define E_HAPPY 1
 #define E_SHOCK 6
 #define E_SLEEP 13
 #define E_CONFUSED 18
 
 // ---- modes: face per feeling cell (arousal high/mid/low x valence neg/neu/pos), love, cry,
-//      resting valence, resting arousal, voice Hz / 2, flags ----
+//      resting valence, resting arousal, voice Hz / 2, flags, curious face ----
 #define F_MONO 1                 // robot: flat tune, no wobble
 #define F_BLUSH 2                // blush whenever no other effect
 #define F_BOUNCY 4               // faster, bigger breathing bob
 #define F_SIGH 8                 // sighs instead of humming
 #define F_HUM 16                 // hums when idle
-const char MODE_NAMES[] PROGMEM = "classic|kawaii|robot|grumpy|sleepy";
+#define F_MOLE 32                // beauty mark on the right cheek
+const char MODE_NAMES[] PROGMEM = "basic|kawaii|robot|grumpy|brows";
 const int8_t MODES[][16] PROGMEM = {
-  {7, 6, 10,   4, 0, 1,     4, 12, 29,  3, 5,   10, 0,    65, F_HUM, 0},             // classic
-  {5, 21, 20,  22, 19, 10,  4, 12, 1,   3, 5,   30, 15,   100, F_BLUSH | F_BOUNCY | F_HUM, 0},   // kawaii
-  {27, 25, 24, 26, 23, 24,  26, 23, 23, 24, 26, 0, 0,     55, F_MONO, 0},            // robot
-  {7, 8, 9,    28, 28, 9,   4, 12, 28,  9, 4,   -25, -10, 50, F_SIGH, 0},            // grumpy
-  {18, 6, 2,   4, 12, 29,   4, 12, 29,  3, 5,   0, -50,   57, F_HUM, 0},             // sleepy
+  {7, 6, 10,   4, 0, 1,     4, 12, 29,  3, 5,   10, 0,    65, F_HUM, 18},                     // basic
+  {5, 21, 20,  22, 19, 10,  4, 12, 1,   3, 5,   30, 15,   100, F_BLUSH | F_BOUNCY | F_HUM | F_MOLE, 21},   // kawaii
+  {27, 25, 24, 26, 23, 24,  26, 23, 23, 24, 26, 0, 0,     55, F_MONO, 25},                    // robot
+  {7, 8, 9,    28, 28, 9,   4, 12, 28,  9, 4,   -25, -10, 50, F_SIGH, 8},                     // grumpy
+  {33, 32, 31, 34, 30, 31,  34, 36, 31, 31, 37, 5, 5,     60, F_HUM, 35},                     // brows
 };
 #define N_MODES 5
 
@@ -231,7 +257,7 @@ const char DEMO[] PROGMEM = "hello! i am glyph, a little face for this screen.|>
                             "> haha sorry, you are awesome|aww, thank you! that makes me happy!|"
                             ":mode kawaii|hiii! now i am super cute, uwu|> do you love pixels?|i LOVE tiny pixels so much!|"
                             ":mode robot|beep. i am a robot now. HELLO HUMAN.|:mode grumpy|ugh. what do you want?|"
-                            ":mode sleepy|so... very... tired...|:mode classic|type to me in the serial box. start with > to talk TO me.";
+                            ":mode brows|hmm. i have eyebrows now. what do you think?|> wow, nice brows!|why thank you!|:mode basic|type to me in the serial box. start with > to talk TO me.";
 
 // vowel -> which VOX waveform plays (the vowel picks the sound, never the pitch) and mouth shape
 const char VOWELS[] = "aeiouy";
@@ -256,7 +282,7 @@ const int8_t VOX[6][128] PROGMEM = {  // one period per vowel, "aeiouy", made by
 // (swell 30 %, hold, release 30 %), the ~40 ms glide, the question slide and a +-1.5 % pitch wobble.
 // A note that starts while one is sounding re-swells from 40 %: legato babble, not beeps.
 // SIM-REPLACE-BEGIN (the lab swaps this block for the same model in WebAudio)
-volatile uint32_t vPhase, vInc, vBase, vTarget;  // 16.16 table phase; step per sample
+volatile uint16_t vPhase, vInc, vBase, vTarget;  // 7.9 table phase (128 entries); step per sample: all 16-bit math
 volatile uint16_t vLen, vPos, vA, vR, vEnv16, vUp, vDn;   // note in 4 ms ticks; envelope 8.8 and its steps
 volatile uint8_t vEnv, vSub, vVowel, vSeed = 1;
 volatile bool vRise;
@@ -264,7 +290,7 @@ volatile bool vRise;
 void voiceStop() { TIMSK2 = 0; TCCR2B = 0; TCCR1A = 0; TCCR1B = 0; PORTB &= ~_BV(1); }   // D9 low
 
 void voiceStart(long freq, int ms, bool rise, byte vowelIdx) {
-  uint32_t inc = (uint32_t)freq * 524288UL / 1000;   // freq * 128 * 65536 / 16000
+  uint16_t inc = (uint32_t)freq * 4096 / 1000;   // freq * 128 * 512 / 16000 (~0.2 % pitch steps)
   uint16_t len = ms / 4;
   noInterrupts();
   bool legato = TIMSK2;
@@ -286,7 +312,7 @@ void voiceStart(long freq, int ms, bool rise, byte vowelIdx) {
 
 ISR(TIMER2_COMPA_vect) {
   vPhase += vInc;
-  int8_t w = pgm_read_byte(&VOX[vVowel][(vPhase >> 16) & 127]);
+  int8_t w = pgm_read_byte(&VOX[vVowel][vPhase >> 9]);
   vSeed ^= vSeed << 3; vSeed ^= vSeed >> 5; vSeed ^= vSeed << 1;          // xorshift8
   int8_t n = vSeed;
   int16_t mix = w - (w >> 3) + (((int16_t)n * vEnv) >> 11);               // breath ~ env^2: no hiss tail
@@ -300,8 +326,8 @@ ISR(TIMER2_COMPA_vect) {
   else vEnv16 = 65280;                                                     // hold
   vEnv = vEnv16 >> 8;
   if (vRise) vTarget += (vTarget >> 8) + (vTarget >> 9);                   // question: word slides up ~0.6 %/tick
-  vBase += ((int32_t)(vTarget - vBase)) >> 3;                              // glide
-  vInc = vBase + (((int32_t)(int8_t)vSeed * (int32_t)(vBase >> 6)) >> 7);  // wobble
+  vBase += ((int16_t)(vTarget - vBase)) >> 3;                              // glide
+  vInc = vBase + (((int16_t)(int8_t)vSeed * (int16_t)(vBase >> 6)) >> 7);  // wobble
 }
 
 void sleepUntilOn() {          // power-down; a pin change on D3 wakes us
@@ -312,6 +338,12 @@ void sleepUntilOn() {          // power-down; a pin change on D3 wakes us
   PCMSK2 &= ~_BV(PCINT19);
 }
 ISR(PCINT2_vect) {}
+
+void nap(byte ms) {              // idle-sleep instead of delay(): timers, I2C, serial and the voice keep
+  unsigned long t = millis();    // running, the CPU core stops until the next interrupt (~1 ms tick)
+  set_sleep_mode(SLEEP_MODE_IDLE);
+  while (millis() - t < ms) sleep_mode();
+}
 
 // I2C master on the TWI hardware, blocking (the Wire library adds ~1.3 KB flash + ~160 B of buffers)
 void twiInit() { PORTC |= _BV(4) | _BV(5); TWSR = 0; TWBR = 72; }   // pull-ups on SDA/SCL; (16 MHz / 100 kHz - 16) / 2
@@ -415,6 +447,7 @@ unsigned long btnAt = 0;
 byte cg[8][8];                  // what each CGRAM slot holds right now
 byte g[8];
 uint16_t rows[8];
+uint32_t lastKey = 0xFFFFFFFF;  // everything that shapes the face last frame: unchanged = skip the work
 
 // ---- tables ----
 byte ex(byte f, byte k) { return pgm_read_byte(&EX[f][k]); }
@@ -497,7 +530,7 @@ void hearYou() {                 // a whole "> ..." line from you has arrived
     if (c == '!') feel(0, 10);
   }
   if (shout) { flashFace(E_SHOCK, 400); feel(0, 30); }
-  if (ask) { curiousUntil = now + 1500; flashFace(md(2) == 24 ? 25 : E_CONFUSED, 600); }
+  if (ask) { curiousUntil = now + 1500; flashFace(cell(15), 600); }
   typingUntil = 0;
   thinkUntil = now + 700;        // a beat to "think" before answering
   lastInput = now;
@@ -530,8 +563,10 @@ void buildEye(byte shape, bool mirror, byte mask, int8_t look) {   // mask: 0 op
     if (mirror) v = mirror10(v);
     if (look > 0) v = v >> look;
     if (look < 0) v = (v << -look) & 0x3FF;
-    if (mask == 1 && (r < 3 + bob || r > 5 + bob)) v = 0;
-    if (mask == 2) v = r == 4 + bob ? 0b0111111110 : 0;
+    byte top = shape >= FIRST_BROW ? 4 : 3;     // brow eyes sit lower, under the brow
+    if (mask && shape >= FIRST_BROW && r < 3 + bob) {}               // brows stay put
+    else if (mask == 1 && (r < top + bob || r > top + 2 + bob)) v = 0;
+    else if (mask == 2) v = r == top + 1 + bob ? 0b0111111110 : 0;
     rows[r] = v;
   }
 }
@@ -624,12 +659,19 @@ void draw(unsigned long now) {
   if (yawning) { eL = LINE; eR = LINE; mask = 0; }
   if (humming && !(flags() & F_SIGH) && !yawning) { eL = ARC; eR = ARC; mask = 0; }
   if (now < nodUntil) bob = 1;
-  buildEye(eL, false, mask, look);
-  sendPair(0);
-  buildEye(eR, ex(face, 2) && !pop, mask, look);
-  sendPair(2);
-  buildMouth(yawning ? V_OPEN : (viseme >= 0 ? viseme : ex(face, 3)));
-  sendPair(4);
+  bool mir = ex(face, 2) && !pop;
+  byte mouth = yawning ? V_OPEN : (viseme >= 0 ? viseme : ex(face, 3));
+  uint32_t key = eL | ((uint32_t)eR << 5) | ((uint32_t)mir << 10) | ((uint32_t)mask << 11) | ((uint32_t)(look + 4) << 13)
+               | ((uint32_t)bob << 16) | ((uint32_t)mouth << 17);
+  if (key != lastKey) {
+    lastKey = key;
+    buildEye(eL, false, mask, look);
+    sendPair(0);
+    buildEye(eR, mir, mask, look);
+    sendPair(2);
+    buildMouth(mouth);
+    sendPair(4);
+  }
 
   byte fx = ex(face, 4);
   if (typing && !talking) fx = FX_THINK;
@@ -760,7 +802,7 @@ void tickSpeech(unsigned long now) {
   sayPos++;
   Serial.write(c);
   if (c == '!') { flashFace(cell(1), 450); feel(0, 8); }
-  if (c == '?') flashFace(md(2) == 24 ? 25 : E_CONFUSED, 700);
+  if (c == '?') flashFace(cell(15), 700);
   if (isEnd(c)) needPhrase = true;
   int p = sayLen - sayPos > 100 ? 25 : pace;      // buffer nearly full: catch up
   nextChar = now + (long)charTime(c) * p / 100;
@@ -799,6 +841,7 @@ long numAt(byte from) {
 
 void setMode(byte m) {
   mode = m % N_MODES;
+  putCh(flags() & F_MOLE ? 0xA5 : ' ', 14, 1);   // beauty mark (ROM middle dot), right cheek
   voiceBase = (byte)md(13) * 2;
   wobble = false;
   val = md(11); aro = md(12);
@@ -956,6 +999,7 @@ void setup() {
   lcdBegin();
   lcdLight(true);
   memset(cg, 255, sizeof(cg));   // force first upload
+  lastKey = 0xFFFFFFFF;
   layout();
   rs16 = analogRead(A0) | 1;
   unsigned long now = millis();
@@ -971,7 +1015,7 @@ void setup() {
 
 void loop() {
   tickPower();
-  if (!powered) { delay(50); return; }
+  if (!powered) { nap(50); return; }
   unsigned long now = millis();
   readSerial();
   tickButton(now);
@@ -982,5 +1026,5 @@ void loop() {
   tickHum(now);
   tickIdle(now);
   draw(now);
-  delay(15);
+  nap(15);
 }
