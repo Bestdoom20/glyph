@@ -93,7 +93,10 @@ Non-streaming API? `reveal(g, fullText)` plays it back word-by-word so the face 
 
 ```
 LCD GND -> GND   VCC -> 5V   SDA -> A4   SCL -> A5      library: LiquidCrystal_I2C
+Passive buzzer via S8050 NPN: D9 -> 1k -> base, emitter -> GND, collector -> buzzer -, buzzer + -> 5V
 ```
+
+**Voice: mumble speech, not TTS.** Text types out on a letter timer (letter ~1/13 s, comma 3x, `.?!` 6x) and the buzzer hums once per vowel group, ~10 per second. Each vowel has its own pitch step, so a line always sounds the same. The tune drifts down through a phrase and resets at punctuation: `?` slides the last word up, `!` starts the phrase high, `...` fades, and a CAPS word shouts. The buzzer is driven straight from Timer1 hardware PWM on D9 (pitch = ICR1, loudness = duty). One interrupt per wave period runs a swell/hold/release envelope, a ±1.6% random wobble (breath) and a ~40 ms glide between syllables. Notes overlap, so it babbles instead of beeping. The mouth opens with the envelope, and each phrase's words set the face. Approach from [this devlog](https://www.youtube.com/watch?v=NaW0d7Tghw0), adapted to a single square-wave buzzer.
 
 Talk to it over Serial (9600 baud, newline):
 
@@ -102,12 +105,13 @@ Talk to it over Serial (9600 baud, newline):
 | `hello there!` | speaks: a mouth shape per letter (a/h open, e/i wide, o/u round, m/b/p closed), pauses on `,` `.`, flashes shock on `!` and confused on `?`, picks a mood from words (love, sorry, wow, haha...) |
 | `:happy` | sets the resting face (`:list` prints all) |
 | `:sleep` / `:wake` | sleep / wake |
+| `:mute` / `:unmute` / `:pitch 220` | buzzer off / on, voice base pitch |
 
 On its own it blinks (sometimes twice), looks around, breathes (1 px bob), hums, turns sleepy after 30 s and sleeps after 60 s. Until the first line arrives it plays a demo.
 
 **How it fits on 16x2:** each eye is 2 cells (10x8 px) on row 0 and the mouth is 2 cells on row 1, which uses 6 of the 8 custom-character (CGRAM) slots. The other 2 hold effects (tears, anger mark, blush, hearts, note). The text on screen never changes. Animation works by rewriting CGRAM, and only the slots that changed get sent.
 
-**Frame budget:** one CGRAM slot costs ~13 ms on the 100 kHz PCF8574 bus, and STN crystals take ~100-200 ms to settle. In practice that means ~8-12 face changes per second. New faces are rows of 10-bit numbers in `EYES[]` / `MOUTHS[]` plus one line in `EX[]`. Bitmaps live in `PROGMEM`: 40% flash and 53% RAM on an ATmega328P.
+**Frame budget:** one CGRAM slot costs ~13 ms on the 100 kHz PCF8574 bus, and STN crystals take ~100-200 ms to settle. In practice that means ~8-12 face changes per second. New faces are rows of 10-bit numbers in `EYES[]` / `MOUTHS[]` plus one line in `EX[]`. No `String`, no `tone()`. Bitmaps, names, demo text and mood words live in flash (`PROGMEM`/`PSTR`): **39% flash, 44% RAM** on an ATmega328P. Every spoken line is echoed to Serial as `> text` while it types.
 
 ## API
 

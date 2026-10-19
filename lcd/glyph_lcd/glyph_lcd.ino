@@ -3,12 +3,21 @@
   https://github.com/Bestdoom20/glyph  ·  Arduino Uno / Freenove Control Board V4
 
   Wiring: LCD GND -> GND, VCC -> 5V, SDA -> A4, SCL -> A5.
+          Passive buzzer via S8050 NPN: D9 -> 1k -> base, emitter -> GND,
+          collector -> buzzer (-), buzzer (+) -> 5V.
+
+  Voice = "mumble speech" (no TTS): text types out on a letter timer, and the buzzer chirps once
+  per vowel group (~10/s). Each vowel has its own pitch step, so a line always sounds the same.
+  Pitch drifts down through a phrase and resets at punctuation; ? rises, ! starts high, ... fades,
+  CAPS shouts. The mouth opens on the vowel while it sounds, and each phrase's words set the face.
 
   Talk to it over Serial (9600 baud, newline ending):
     hello there!     speaks the text: mouth shape per letter, cues on ! ? and mood words
     :happy  :sad     sets the resting face (:list prints every name)
     :sleep  :wake    sleep / wake
-  It plays a demo script until the first line arrives.
+    :mute  :unmute   buzzer off / on        :pitch 220   voice base pitch in Hz
+  It plays a demo script until the first line arrives. Lines over 127 chars are cut.
+  Every spoken line is echoed to Serial as "> text" while it types (a live caption).
 
   Screen: eyes are 2 cells (10x8 px) each on row 0, the mouth is 2 cells on row 1.
   CGRAM slots: 0-1 left eye, 2-3 right eye, 4-5 mouth, 6-7 effects.
@@ -17,6 +26,8 @@
   to settle, so ~8-12 face changes per second is the useful ceiling.
 */
 #include <LiquidCrystal_I2C.h>
+
+#define BUZZER 9
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
@@ -103,32 +114,31 @@ const byte FX_NOTE[8] PROGMEM  = {0b00110, 0b00101, 0b00100, 0b00100, 0b01100, 0
 #define FX_ZZZ 5
 #define FX_HUM 6
 
-// ---- expressions: eyeL, eyeR, mirror right eye, mouth, effect, can blink ----
-const char* NAMES[] = {"idle", "happy", "joy", "love", "sad", "cry", "shock", "angry", "annoyed", "smug",
-                       "excited", "dizzy", "sleepy", "sleep", "kiss", "tongue", "evil", "cute", "confused"};
-const byte EX[][6] PROGMEM = {
-  {DOT, DOT, 0, CAT, FX_NONE, 1},          // idle      ● ω ●
-  {ARC, ARC, 0, SMILE, FX_NONE, 0},        // happy     ^ ‿ ^
-  {DOT, DOT, 0, GRIN, FX_NONE, 1},         // joy       ● ▽ ●
-  {HEART, HEART, 0, SMILE, FX_LOVE, 0},    // love      ♥ ‿ ♥
-  {LINE, LINE, 0, FROWN, FX_TEARS, 0},     // sad       — ︵ —
-  {TEE, TEE, 0, OH, FX_TEARS, 0},          // cry       T o T
-  {RING, RING, 0, OH, FX_NONE, 1},         // shock     O o O
-  {BROW, BROW, 1, FROWN, FX_MAD, 1},       // angry     ò ︵ ó
-  {LID, LID, 0, RECT, FX_MAD, 0},          // annoyed   ⊖ ▭ ⊖
-  {LID, LID, 0, SMIRK, FX_NONE, 0},        // smug      ⊖ / ⊖
-  {CHEVRON, CHEVRON, 1, CAT, FX_SHY, 0},   // excited   > ω <
-  {SPIRAL, SPIRAL, 1, WAVY, FX_NONE, 0},   // dizzy     @ ~ @
-  {SLEEPY, SLEEPY, 0, V_SMALL, FX_NONE, 0},// sleepy
-  {LINE, LINE, 0, FLAT, FX_ZZZ, 0},        // sleep     — — z
-  {LINE, LINE, 0, KISS, FX_SHY, 0},        // kiss      — 3 —
-  {HALF, HALF, 0, TONGUE, FX_NONE, 0},     // tongue    ◡ ᴗ ◡
-  {WEDGE, WEDGE, 1, CAT, FX_NONE, 0},      // evil      ◣ ω ◢
-  {SMALL, SMALL, 0, TONGUE, FX_NONE, 1},   // cute      ° ᴗ °
-  {SMALL, RING, 0, FLAT, FX_NONE, 1},      // confused  o — O
+// ---- expressions: eyeL, eyeR, mirror right eye, mouth, effect, can blink, voice pitch %, letter time % ----
+const char NAMES[] PROGMEM = "idle|happy|joy|love|sad|cry|shock|angry|annoyed|smug|excited|dizzy|sleepy|sleep|kiss|tongue|evil|cute|confused";
+const byte EX[][8] PROGMEM = {
+  {DOT, DOT, 0, CAT, FX_NONE, 1, 100, 100},          // idle      ● ω ●
+  {ARC, ARC, 0, SMILE, FX_NONE, 0, 115, 100},        // happy     ^ ‿ ^
+  {DOT, DOT, 0, GRIN, FX_NONE, 1, 115, 88},          // joy       ● ▽ ●
+  {HEART, HEART, 0, SMILE, FX_LOVE, 0, 110, 100},    // love      ♥ ‿ ♥
+  {LINE, LINE, 0, FROWN, FX_TEARS, 0, 80, 130},      // sad       — ︵ —
+  {TEE, TEE, 0, OH, FX_TEARS, 0, 80, 130},           // cry       T o T
+  {RING, RING, 0, OH, FX_NONE, 1, 125, 100},         // shock     O o O
+  {BROW, BROW, 1, FROWN, FX_MAD, 1, 90, 88},         // angry     ò ︵ ó
+  {LID, LID, 0, RECT, FX_MAD, 0, 90, 100},           // annoyed   ⊖ ▭ ⊖
+  {LID, LID, 0, SMIRK, FX_NONE, 0, 95, 110},         // smug      ⊖ / ⊖
+  {CHEVRON, CHEVRON, 1, CAT, FX_SHY, 0, 115, 88},    // excited   > ω <
+  {SPIRAL, SPIRAL, 1, WAVY, FX_NONE, 0, 100, 120},   // dizzy     @ ~ @
+  {SLEEPY, SLEEPY, 0, V_SMALL, FX_NONE, 0, 75, 150}, // sleepy
+  {LINE, LINE, 0, FLAT, FX_ZZZ, 0, 75, 150},         // sleep     — — z
+  {LINE, LINE, 0, KISS, FX_SHY, 0, 110, 100},        // kiss      — 3 —
+  {HALF, HALF, 0, TONGUE, FX_NONE, 0, 105, 100},     // tongue    ◡ ᴗ ◡
+  {WEDGE, WEDGE, 1, CAT, FX_NONE, 0, 85, 100},       // evil      ◣ ω ◢
+  {SMALL, SMALL, 0, TONGUE, FX_NONE, 1, 120, 95},    // cute      ° ᴗ °
+  {SMALL, RING, 0, FLAT, FX_NONE, 1, 105, 110},      // confused  o — O
 };
-#define N_EX 19
 #define E_IDLE 0
+#define E_HAPPY 1
 #define E_JOY 2
 #define E_LOVE 3
 #define E_SAD 4
@@ -138,37 +148,87 @@ const byte EX[][6] PROGMEM = {
 #define E_SLEEP 13
 #define E_CONFUSED 18
 
-const char* DEMO[] = {"hello! i am glyph, a face for this little screen.", ":happy", "i can talk, blink and look around.",
-                      ":love", "i love tiny pixels.", ":angry", "do not unplug me!", ":dizzy", "whoa...",
-                      ":sad", "sorry, that was a lot.", ":excited", "wow! type to me in the serial box!", ":idle"};
-#define N_DEMO 14
+const char DEMO[] PROGMEM = "hello! i am glyph, a face for this little screen.|:happy|i can talk, blink and look around.|"
+                            ":love|i love tiny pixels.|:angry|do not unplug me!|:dizzy|whoa...|"
+                            ":sad|sorry, that was a lot.|:excited|WOW! can you hear me? type to me in the serial box...|:idle";
+
+// vowel -> pitch step (% of voice, a musical step apart) and mouth shape
+const char VOWELS[] = "aeiouy";
+const byte V_STEP[] = {100, 112, 126, 89, 84, 119};
+const byte V_MOUTH[] = {V_OPEN, V_WIDE, V_WIDE, OH, OH, V_WIDE};
+const int HUM[] = {392, 440, 349};
+
+// ---- buzzer voice: Timer1 hardware PWM on D9 (OC1A) ----
+// Pitch = ICR1, loudness = duty (OCR1A). One interrupt per wave period runs the envelope
+// (swell 20 %, hold, release 30 %), a +-1.6 % random wobble per period (breath), a ~40 ms
+// glide into each new pitch, and the question slide. A note that starts while one is still
+// sounding re-swells from 40 % instead of silence: legato babble, not beeps. It runs off the CPU's main path, so LCD bus stalls never chop the sound.
+// SIM-REPLACE-BEGIN (the lab swaps this block for the same model in WebAudio)
+volatile uint16_t vTop, vTarget, vLen, vPos, vA, vR;
+volatile int16_t vSlide;
+volatile uint8_t vSeed = 1;
+
+void voiceStop() { TIMSK1 = 0; TCCR1A = 0; TCCR1B = 0; digitalWrite(BUZZER, LOW); }
+
+void voiceStart(long freq, int ms, bool rise) {
+  uint16_t top = 2000000UL / freq;             // Timer1 at 2 MHz (prescaler 8)
+  uint16_t len = freq * ms / 1000;              // note length in wave periods
+  noInterrupts();
+  bool legato = TIMSK1;                        // previous note still sounding
+  vTarget = top;
+  if (!legato) vTop = top;
+  vLen = len; vA = len / 5; vR = len - len * 3 / 10;
+  vPos = legato ? vA * 2 / 5 : 0;
+  vSlide = rise ? -(int16_t)(top / 12) : 0;
+  if (legato) { interrupts(); return; }
+  ICR1 = top; OCR1A = 0; TCNT1 = 0;
+  TCCR1A = _BV(COM1A1) | _BV(WGM11);           // fast PWM, TOP = ICR1, output on D9
+  TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS11);
+  TIMSK1 = _BV(TOIE1);
+  interrupts();
+}
+
+ISR(TIMER1_OVF_vect) {
+  uint16_t p = vPos++;
+  if (p >= vLen) { voiceStop(); return; }
+  uint8_t env = p < vA ? (uint32_t)255 * p / vA : (p > vR ? (uint32_t)255 * (vLen - p) / (vLen - vR) : 255);
+  if (vSlide && (p & 31) == 31) vTarget += vSlide;              // question: word slides up
+  vTop += ((int16_t)(vTarget - vTop)) / 8;                     // glide
+  vSeed ^= vSeed << 3; vSeed ^= vSeed >> 5; vSeed ^= vSeed << 1;   // xorshift8
+  uint16_t top = vTop + (((int16_t)(int8_t)vSeed * (int16_t)(vTop >> 6)) >> 7);
+  ICR1 = top;
+  OCR1A = ((uint32_t)top * env) >> 9;                           // duty 0..50 %
+}
+// SIM-REPLACE-END
 
 // ---- state ----
-int expr = E_IDLE;              // resting face
-int mood = E_IDLE;              // face while speaking / just after
-unsigned long moodUntil = 0;
-int flash = E_IDLE;             // short reaction (! ?)
-unsigned long flashUntil = 0;
-bool asleep = false;
-int lookX = 0;                  // pupil shift in px, -2..2
-unsigned long nextLook = 0;
-int blinkStage = 0;             // 0 open, 1 half, 2 closed, 3 half
-unsigned long blinkAt = 0;
-int bob = 0;                    // breathing: face drops 1 px
-unsigned long bobAt = 0;
-unsigned long humUntil = 0, nextHum = 0;
-unsigned long lastInput = 0;
-String say = "";
-int sayPos = 0;
-unsigned long nextChar = 0;
-int viseme = -1;                // mouth while talking, -1 = expression mouth
-bool demo = true;
-int demoPos = 0;
-unsigned long demoAt = 0;
-String inLine = "";
-int fxShown = -1;
+#define MAXLEN 128
+char say[MAXLEN];               // line being spoken
+byte sayLen = 0, sayPos = 0;
+char inLine[MAXLEN];            // line arriving on Serial
+byte inLen = 0;
+int8_t expr = E_IDLE;           // resting face
+int8_t mood = E_IDLE;           // face while speaking / just after
+int8_t flash = E_IDLE;          // short reaction (! ?)
+unsigned long moodUntil = 0, flashUntil = 0;
+bool asleep = false, demo = true, muted = false;
+int8_t lookX = 0;               // pupil shift in px, -2..2
+byte blinkStage = 0;            // 0 open, 1 half, 2 closed, 3 half
+byte bob = 0;                   // breathing: face drops 1 px
+unsigned long nextLook = 0, blinkAt = 0, bobAt = 0, humUntil = 0, nextHum = 0, hummAt = 0;
+byte hummNote = 3;
+unsigned long lastInput = 0, nextChar = 0, demoAt = 0;
+int8_t viseme = -1;             // mouth override (talking), -1 = expression mouth
+int demoPos = 0;                // offset into DEMO
+int voiceBase = 220;            // Hz: a low hum; the square's harmonics ring the buzzer's ~2.7 kHz resonance
+byte phraseK = 0;               // syllables into the current phrase (pitch drifts down)
+bool phraseHigh = false, fading = false;
+long sylFreq = 0;
+unsigned long sylStart = 0, sylEnd = 0;
+int8_t sylViseme = -1;
+int8_t fxShown = -1;
+byte fxFrame = 0;
 unsigned long fxAt = 0;
-int fxFrame = 0;
 
 byte cg[8][8];                  // what each CGRAM slot holds right now
 byte g[8];
@@ -179,28 +239,26 @@ byte ex(int face, int k) { return pgm_read_byte(&EX[face][k]); }
 
 uint16_t mirror10(uint16_t v) {
   uint16_t r = 0;
-  for (int i = 0; i < 10; i++) if (v & (1 << i)) r |= 1 << (9 - i);
+  for (byte i = 0; i < 10; i++) if (v & (1 << i)) r |= 1 << (9 - i);
   return r;
 }
 
-void upload(int slot) {        // send g[] to a CGRAM slot only if it changed
-  bool same = true;
-  for (int r = 0; r < 8; r++) if (cg[slot][r] != g[r]) same = false;
-  if (same) return;
-  for (int r = 0; r < 8; r++) cg[slot][r] = g[r];
+void upload(byte slot) {       // send g[] to a CGRAM slot only if it changed
+  if (memcmp(cg[slot], g, 8) == 0) return;
+  memcpy(cg[slot], g, 8);
   lcd.createChar(slot, g);
 }
 
-void sendPair(int slot) {      // rows[] (10 px) -> two 5 px slots
-  for (int r = 0; r < 8; r++) g[r] = (rows[r] >> 5) & 31;
+void sendPair(byte slot) {     // rows[] (10 px) -> two 5 px slots
+  for (byte r = 0; r < 8; r++) g[r] = (rows[r] >> 5) & 31;
   upload(slot);
-  for (int r = 0; r < 8; r++) g[r] = rows[r] & 31;
+  for (byte r = 0; r < 8; r++) g[r] = rows[r] & 31;
   upload(slot + 1);
 }
 
-void buildEye(int shape, bool mirror, bool canBlink) {
-  for (int r = 0; r < 8; r++) {
-    int src = r - bob;
+void buildEye(byte shape, bool mirror, bool canBlink) {
+  for (byte r = 0; r < 8; r++) {
+    int8_t src = r - bob;
     uint16_t v = src >= 0 ? pgm_read_word(&EYES[shape][src]) : 0;
     if (mirror) v = mirror10(v);
     if (lookX > 0) v = v >> lookX;
@@ -211,46 +269,47 @@ void buildEye(int shape, bool mirror, bool canBlink) {
   }
 }
 
-void buildMouth(int shape) {
-  for (int r = 0; r < 8; r++) {
-    int src = r - bob;
+void buildMouth(byte shape) {
+  for (byte r = 0; r < 8; r++) {
+    int8_t src = r - bob;
     rows[r] = src >= 0 ? pgm_read_word(&MOUTHS[shape][src]) : 0;
   }
 }
 
-void putFx(int slot, int col, int row) { lcd.setCursor(col, row); lcd.write(byte(slot)); }
+void putFx(byte slot, byte col, byte row) { lcd.setCursor(col, row); lcd.write(slot); }
 
 void clearFx() {               // every cell an effect may use
   const byte cells[][2] = {{1, 0}, {14, 0}, {15, 0}, {2, 1}, {3, 1}, {12, 1}, {13, 1}};
-  for (int i = 0; i < 7; i++) { lcd.setCursor(cells[i][0], cells[i][1]); lcd.print(" "); }
+  for (byte i = 0; i < 7; i++) { lcd.setCursor(cells[i][0], cells[i][1]); lcd.write(' '); }
 }
 
-void loadFx(int slot, const byte *src, int drop) {   // drop = shift down for falling tears
-  for (int r = 0; r < 8; r++) g[r] = r - drop >= 0 ? pgm_read_byte(&src[r - drop]) : 0;
+void loadFx(byte slot, const byte *src, byte drop) {   // drop = shift down for falling tears
+  for (byte r = 0; r < 8; r++) g[r] = r >= drop ? pgm_read_byte(&src[r - drop]) : 0;
   upload(slot);
 }
 
-void drawFx(int fx, unsigned long now) {
+void drawFx(byte fx, unsigned long now) {
   bool changed = fx != fxShown;
   if (changed) { clearFx(); fxShown = fx; fxFrame = 0; fxAt = now; }
+  bool tick = changed || now >= fxAt;
   if (fx == FX_TEARS) {
-    if (changed || now >= fxAt) { loadFx(6, FX_TEAR, fxFrame % 3); fxFrame++; fxAt = now + 220; }
+    if (tick) { loadFx(6, FX_TEAR, fxFrame % 3); fxFrame++; fxAt = now + 220; }
     if (changed) { putFx(6, 3, 1); putFx(6, 12, 1); }
   } else if (fx == FX_MAD) {
     if (changed) { loadFx(7, FX_ANGER, 0); putFx(7, 14, 0); }
   } else if (fx == FX_SHY) {
     if (changed) { loadFx(7, FX_BLUSH, 0); putFx(7, 2, 1); putFx(7, 13, 1); }
   } else if (fx == FX_LOVE) {
-    if (changed || now >= fxAt) {          // heart hops between the corners
+    if (tick) {                            // heart hops between the corners
       if (changed) loadFx(7, FX_HEART, 0);
-      lcd.setCursor(fxFrame % 2 ? 14 : 1, 0); lcd.print(" ");
+      lcd.setCursor(fxFrame % 2 ? 14 : 1, 0); lcd.write(' ');
       putFx(7, fxFrame % 2 ? 1 : 14, 0);
       fxFrame++; fxAt = now + 700;
     }
   } else if (fx == FX_ZZZ) {
-    if (changed || now >= fxAt) {
+    if (tick) {
       lcd.setCursor(14, 0);
-      lcd.print(fxFrame % 3 == 0 ? "z " : (fxFrame % 3 == 1 ? "zZ" : " Z"));
+      lcd.print(fxFrame % 3 == 0 ? F("z ") : (fxFrame % 3 == 1 ? F("zZ") : F(" Z")));
       fxFrame++; fxAt = now + 650;
     }
   } else if (fx == FX_HUM) {
@@ -259,17 +318,17 @@ void drawFx(int fx, unsigned long now) {
 }
 
 void draw(unsigned long now) {
-  int face = expr;
+  byte face = expr;
   if (now < moodUntil) face = mood;
   if (now < flashUntil) face = flash;
   if (asleep) face = E_SLEEP;
   bool humming = now < humUntil && !asleep;
-  if (humming) face = 1;     // happy eyes while humming
+  if (humming) face = E_HAPPY;
 
-  bool blinkOk = ex(face, 5) == 1;
+  bool blinkOk = ex(face, 5);
   buildEye(ex(face, 0), false, blinkOk);
   sendPair(0);
-  buildEye(ex(face, 1), ex(face, 2) == 1, blinkOk);
+  buildEye(ex(face, 1), ex(face, 2), blinkOk);
   sendPair(2);
   buildMouth(viseme >= 0 ? viseme : ex(face, 3));
   sendPair(4);
@@ -278,91 +337,184 @@ void draw(unsigned long now) {
 
 void layout() {
   lcd.clear();
-  lcd.setCursor(3, 0);  lcd.write(byte(0)); lcd.write(byte(1));
-  lcd.setCursor(11, 0); lcd.write(byte(2)); lcd.write(byte(3));
-  lcd.setCursor(7, 1);  lcd.write(byte(4)); lcd.write(byte(5));
+  lcd.setCursor(3, 0);  lcd.write(0); lcd.write(1);
+  lcd.setCursor(11, 0); lcd.write(2); lcd.write(3);
+  lcd.setCursor(7, 1);  lcd.write(4); lcd.write(5);
 }
 
-// ---- speech ----
-int visemeFor(char c) {
+// ---- speech: letter timer + mumble voice ----
+int8_t vowel(char c) {           // index in VOWELS, -1 = not a vowel
   c = tolower(c);
-  if (c == 'a' || c == 'h') return V_OPEN;
-  if (c == 'e' || c == 'i' || c == 'y') return V_WIDE;
-  if (c == 'o' || c == 'u' || c == 'w' || c == 'q') return OH;
-  if (c == 'm' || c == 'b' || c == 'p' || c == ' ') return FLAT;
-  if (isalpha(c)) return V_SMALL;
-  return FLAT;
+  for (byte i = 0; i < 6; i++) if (VOWELS[i] == c) return i;
+  return -1;
 }
 
-int charTime(char c) {
-  if (c == '.' || c == '!' || c == '?') return 380;
-  if (c == ',') return 220;
-  if (c == ' ') return 90;
-  return 65;
+bool isEnd(char c) { return c == ',' || c == '.' || c == '!' || c == '?'; }
+
+int charTime(char c) {           // letter ~1/13 s, comma 3x, sentence end 6x
+  int t = 75;
+  if (c == ',') t = 225;
+  if (c == '.' || c == '!' || c == '?') t = 450;
+  return t * ex(mood, 7) / 100;
 }
 
-int moodOf(String low) {
-  if (low.indexOf("love") >= 0 || low.indexOf("<3") >= 0) return E_LOVE;
-  if (low.indexOf("sad") >= 0 || low.indexOf("sorry") >= 0 || low.indexOf("cry") >= 0) return E_SAD;
-  if (low.indexOf("unplug") >= 0 || low.indexOf("angry") >= 0 || low.indexOf("hate") >= 0) return E_ANGRY;
-  if (low.indexOf("haha") >= 0 || low.indexOf("lol") >= 0 || low.indexOf("yay") >= 0 || low.indexOf("hello") >= 0) return E_JOY;
-  if (low.indexOf("wow") >= 0 || low.indexOf("whoa") >= 0) return E_SHOCK;
-  if (low.indexOf("hmm") >= 0) return E_CONFUSED;
-  return expr;
+bool has(byte a, byte b, const char* w) {   // case-insensitive search for flash word w in say[a..b)
+  byte n = strlen_P(w);
+  for (byte i = a; i + n <= b; i++) {
+    byte k = 0;
+    while (k < n && tolower(say[i + k]) == pgm_read_byte(&w[k])) k++;
+    if (k == n) return true;
+  }
+  return false;
 }
 
-void speak(String text) {
-  String low = "";
-  for (int i = 0; i < text.length(); i++) low += (char)tolower(text[i]);
-  mood = moodOf(low);
-  moodUntil = 0xFFFFFFFF;
-  say = text;
+int8_t moodOf(byte a, byte b) {
+  if (has(a, b, PSTR("love")) || has(a, b, PSTR("<3"))) return E_LOVE;
+  if (has(a, b, PSTR("sad")) || has(a, b, PSTR("sorry")) || has(a, b, PSTR("cry"))) return E_SAD;
+  if (has(a, b, PSTR("unplug")) || has(a, b, PSTR("angry")) || has(a, b, PSTR("hate"))) return E_ANGRY;
+  if (has(a, b, PSTR("haha")) || has(a, b, PSTR("lol")) || has(a, b, PSTR("yay")) || has(a, b, PSTR("hello"))) return E_JOY;
+  if (has(a, b, PSTR("wow")) || has(a, b, PSTR("whoa"))) return E_SHOCK;
+  if (has(a, b, PSTR("hmm"))) return E_CONFUSED;
+  return -1;
+}
+
+void startPhrase(byte from) {    // read ahead to the phrase end: sets tune and face
+  byte j = from;
+  while (j < sayLen && !isEnd(say[j])) j++;
+  phraseK = 0;
+  phraseHigh = j < sayLen && say[j] == '!';
+  fading = j + 1 < sayLen && say[j] == '.' && say[j + 1] == '.';
+  int8_t m = moodOf(from, j);
+  if (m >= 0) mood = m;
+}
+
+bool wordIs(byte pos, bool shout) {   // shout: whole word in CAPS; else: word ends with ?
+  byte a = pos, b = pos;
+  while (a > 0 && isalpha(say[a - 1])) a--;
+  while (b < sayLen && isalpha(say[b])) b++;
+  if (!shout) return b < sayLen && say[b] == '?';
+  if (b - a < 2) return false;
+  for (byte i = a; i < b; i++) if (!isupper(say[i])) return false;
+  return true;
+}
+
+void note(long f, unsigned long now, int len, int8_t mouth, bool rise) {
+  sylFreq = f; sylStart = now; sylEnd = now + len; sylViseme = mouth;
+  if (!muted) voiceStart(f, len, rise);
+}
+
+void startSyllable(byte pos, int8_t v, unsigned long now) {
+  long f = (long)voiceBase * ex(mood, 6) / 100;
+  f = f * V_STEP[v] / 100;
+  f = f * (100 - min(phraseK * 3, 21)) / 100;   // the tune drifts down through the phrase
+  phraseK++;
+  if (phraseHigh) f = f * 120 / 100;
+  if (fading) f = f * 85 / 100;
+  if (wordIs(pos, true)) f = f * 130 / 100;
+  f = f + f * random(-3, 4) / 100;               // no two buzzes alike
+  note(f, now, (fading ? 110 : 180) * ex(mood, 7) / 100, V_MOUTH[v], wordIs(pos, false));   // longer than the gap: babble
+}
+
+void tickVoice(unsigned long now) {   // mouth follows the note's envelope; the timer plays it
+  if (sylFreq > 0 && now >= sylEnd) { sylFreq = 0; if (sayLen == 0) viseme = -1; }
+  if (sylFreq > 0) {
+    unsigned long t = now - sylStart, len = sylEnd - sylStart;
+    bool partOpen = t < len / 5 || t > len * 7 / 10;          // swell / release
+    viseme = sylViseme < 0 ? -1 : (partOpen ? V_SMALL : sylViseme);
+  } else if (sayLen > 0) {
+    viseme = sayPos > 0 && isalpha(say[sayPos - 1]) ? V_SMALL : FLAT;
+  }
+}
+
+void speak() {                   // inLine -> say
+  memcpy(say, inLine, inLen);
+  sayLen = inLen;
   sayPos = 0;
+  mood = expr;
+  moodUntil = 0xFFFFFFFF;
   nextChar = millis();
+  startPhrase(0);
+  Serial.print(F("> "));
 }
 
 void tickSpeech(unsigned long now) {
-  if (say.length() == 0 || now < nextChar) return;
-  if (sayPos >= say.length()) {           // finished: close mouth, hold the mood a moment
-    say = "";
+  if (sayLen == 0 || now < nextChar) return;
+  if (sayPos >= sayLen) {        // finished: close mouth, hold the mood a moment
+    sayLen = 0;
     viseme = -1;
     moodUntil = now + 1500;
+    Serial.println();
     return;
   }
   char c = say[sayPos];
+  int8_t v = vowel(c);
+  if (v >= 0 && (sayPos == 0 || vowel(say[sayPos - 1]) < 0)) startSyllable(sayPos, v, now);
   sayPos++;
-  viseme = visemeFor(c);
+  Serial.write(c);
   if (c == '!') { flash = E_SHOCK; flashUntil = now + 450; }
   if (c == '?') { flash = E_CONFUSED; flashUntil = now + 700; }
+  if (isEnd(c)) startPhrase(sayPos);
   nextChar = now + charTime(c);
   lastInput = now;
 }
 
+void tickHum(unsigned long now) {   // three soft notes on the same voice engine
+  if (asleep || sayLen > 0) { hummNote = 3; return; }
+  if (hummNote < 3 && now >= hummAt) { note(HUM[hummNote], now, 260, -1, false); hummNote++; hummAt = now + 300; }
+}
+
 // ---- input ----
-void handleLine(String line) {
+bool isCmd(const char* w, bool prefix) {   // inLine == ":" + flash word w (or starts with it)
+  byte n = strlen_P(w);
+  if (inLen - 1 < n || (!prefix && inLen - 1 != n)) return false;
+  for (byte i = 0; i < n; i++) if (inLine[i + 1] != pgm_read_byte(&w[i])) return false;
+  return true;
+}
+
+int8_t findFace(bool list) {     // match inLine against NAMES in flash, or print them all
+  int8_t k = 0;
+  byte j = 1;
+  bool ok = true;
+  int n = strlen_P(NAMES);
+  for (int i = 0; i <= n; i++) {
+    char c = i < n ? pgm_read_byte(&NAMES[i]) : '|';
+    if (list) Serial.write(c == '|' ? '\n' : c);
+    if (c == '|') { if (ok && j == inLen) return k; k++; j = 1; ok = true; }
+    else { if (j >= inLen || inLine[j] != c) ok = false; j++; }
+  }
+  return -1;
+}
+
+void handleLine() {
   unsigned long now = millis();
   lastInput = now;
   if (asleep) { asleep = false; flash = E_SHOCK; flashUntil = now + 600; }
-  if (line.startsWith(":")) {
-    String cmd = line.substring(1);
-    if (cmd == "list") { for (int i = 0; i < N_EX; i++) Serial.println(NAMES[i]); return; }
-    if (cmd == "sleep") { asleep = true; return; }
-    if (cmd == "wake") return;
-    for (int i = 0; i < N_EX; i++) if (cmd == NAMES[i]) { expr = i; moodUntil = 0; Serial.println("face: " + cmd); return; }
-    Serial.println(F("unknown face, try :list"));
+  if (inLine[0] != ':') { speak(); return; }
+  if (isCmd(PSTR("list"), false)) { findFace(true); return; }
+  if (isCmd(PSTR("sleep"), false)) { asleep = true; return; }
+  if (isCmd(PSTR("wake"), false)) return;
+  if (isCmd(PSTR("mute"), false)) { muted = true; voiceStop(); return; }
+  if (isCmd(PSTR("unmute"), false)) { muted = false; return; }
+  if (isCmd(PSTR("pitch "), true)) {
+    int v = 0;
+    for (byte i = 7; i < inLen; i++) if (isdigit(inLine[i])) v = v * 10 + (inLine[i] - '0');
+    voiceBase = constrain(v, 80, 3000);
     return;
   }
-  speak(line);
+  int8_t f = findFace(false);
+  if (f < 0) { Serial.println(F("unknown face, try :list")); return; }
+  expr = f;
+  moodUntil = 0;
 }
 
 void readSerial() {
   while (Serial.available() > 0) {
     char c = Serial.read();
     if (c == '\n' || c == '\r') {
-      if (inLine.length() > 0) { demo = false; handleLine(inLine); }
-      inLine = "";
-    } else {
-      inLine += c;
+      if (inLen > 0) { demo = false; handleLine(); }
+      inLen = 0;
+    } else if (inLen < MAXLEN) {
+      inLine[inLen++] = c;
     }
   }
 }
@@ -376,30 +528,39 @@ void tickIdle(unsigned long now) {
     if (blinkStage == 0 && random(0, 100) < 15) blinkAt = now + 250;   // double blink
   }
   if (now >= nextLook) {
-    int r = random(0, 5);
+    byte r = random(0, 5);
     lookX = r == 0 ? -2 : (r == 1 ? 2 : (r == 2 ? -1 : 0));
     nextLook = now + (lookX == 0 ? random(2500, 6000) : random(600, 1800));
   }
   if (now >= bobAt) { bob = 1 - bob; bobAt = now + (bob ? 500 : random(2500, 4000)); }
-  if (now >= nextHum && say.length() == 0) { humUntil = now + 1500; nextHum = now + random(20000, 40000); }
+  if (now >= nextHum && sayLen == 0) { humUntil = now + 1500; hummAt = now; hummNote = 0; nextHum = now + random(20000, 40000); }
 
   unsigned long idle = now - lastInput;
   if (!demo && !asleep && idle > 60000) asleep = true;
   if (!demo && !asleep && idle > 30000 && expr == E_IDLE) { mood = E_SLEEPY; moodUntil = now + 100; }
 }
 
-void tickDemo(unsigned long now) {
-  if (!demo || say.length() > 0 || now < demoAt) return;
-  handleLine(DEMO[demoPos]);
-  demoPos = (demoPos + 1) % N_DEMO;
+void tickDemo(unsigned long now) {   // feed the next '|' piece of DEMO as if it came from Serial
+  if (!demo || sayLen > 0 || now < demoAt) return;
+  int n = strlen_P(DEMO);
+  inLen = 0;
+  while (demoPos < n) {
+    char c = pgm_read_byte(&DEMO[demoPos++]);
+    if (c == '|') break;
+    inLine[inLen++] = c;
+  }
+  if (demoPos >= n) demoPos = 0;
+  handleLine();
+  inLen = 0;
   demoAt = now + 900;
 }
 
 void setup() {
   Serial.begin(9600);
+  pinMode(BUZZER, OUTPUT);
   lcd.init();
   lcd.backlight();
-  for (int s = 0; s < 8; s++) for (int r = 0; r < 8; r++) cg[s][r] = 255;   // force first upload
+  memset(cg, 255, sizeof(cg));   // force first upload
   layout();
   randomSeed(analogRead(A0));
   unsigned long now = millis();
@@ -416,6 +577,8 @@ void loop() {
   readSerial();
   tickDemo(now);
   tickSpeech(now);
+  tickVoice(now);
+  tickHum(now);
   tickIdle(now);
   draw(now);
   delay(15);
