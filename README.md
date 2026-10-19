@@ -24,6 +24,24 @@
 
 Zero runtime dependencies. Text + CSS only. **Add a face = add a string.**
 
+## 🆕 GLYPH on real hardware
+
+<div align="center">
+
+<img src="lcd/media/glyph-lcd-talking.gif" width="420" alt="GLYPH talking on a 16x2 LCD">
+
+**A tiny face on a $3 LCD that talks, feels, listens and reacts. It runs on an Arduino Uno.**
+
+**[🎨 Face Builder](https://bestdoom20.github.io/glyph/face-builder/)** · **[🔬 Kit Lab simulator](https://bestdoom20.github.io/glyph/lab/)** · [How it works](#glyph-lcd--the-face-on-real-hardware) · [Wiring](lcd/WIRING.md)
+
+</div>
+
+- 38 faces across 5 profiles (basic, kawaii, robot, grumpy, brows), plus **your own face**: draw the eyes and the engine derives every expression.
+- A buzzer "mumble speech" voice, a feelings engine, LLM token-stream talking, and a Telegram/terminal bridge to Claude.
+- A 1:1 browser simulator with a step-by-step build guide. 59% flash on an ATmega328P.
+
+**Coming soon:** text-to-speech voice output · SillyTavern and roleplay integrations (character mood and status meters drive the face) · more expression packs and hardware projects.
+
 ## Install
 
 ```sh
