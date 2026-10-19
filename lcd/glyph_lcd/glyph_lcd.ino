@@ -450,8 +450,8 @@ int8_t sylViseme = -1;
 int8_t fxShown = -1;
 byte fxFrame = 0;
 unsigned long fxAt = 0;
-bool btnWas = true;
-unsigned long btnAt = 0;
+bool btnWas = true, btnLong = false;
+unsigned long btnAt = 0, btnDown = 0;
 
 byte cg[8][8];                  // what each CGRAM slot holds right now
 byte g[8];
@@ -997,9 +997,20 @@ void tickPower() {               // POWER switch on D3: LOW = off
   }
 }
 
-void tickButton(unsigned long now) {   // MODE button on D2: press = next mode
+void tickButton(unsigned long now) {   // MODE button on D2: tap = wake / next profile, hold 1 s = non-stop talking on/off
   bool up = pinHigh(MODE_BTN);
-  if (!up && btnWas && now - btnAt > 200) { btnAt = now; demo = false; setMode(mode + 1); }
+  if (!up && btnWas && now - btnAt > 50) { btnDown = now; btnLong = false; lastInput = now; }   // press starts
+  if (!up && btnDown && !btnLong && now - btnDown > 900) {                                     // held: toggle the demo loop
+    btnLong = true;
+    demo = !demo;
+    if (asleep) asleep = false;
+    if (demo) { demoAt = now + 400; flashFace(cell(2), 600); }
+    else if (talking) { talking = false; sayLen = sayPos = 0; sylFreq = 0; voiceStop(); viseme = -1; Serial.println(); }
+  }
+  if (up && !btnWas && btnDown) {                                                              // released
+    if (!btnLong) { if (asleep) wake(now); else setMode(mode + 1); }
+    btnDown = 0; btnAt = now; lastInput = now;
+  }
   btnWas = up;
 }
 
