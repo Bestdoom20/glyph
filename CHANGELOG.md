@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **GLYPH-LCD buzzer voice**: second vowel set (`VOX` rows 6-11) for real passive buzzers. Additive, band-limited harmonics of ~700 Hz with vowel formants compressed and lifted around 2.7 kHz (43-70% of energy in the loud band for open vowels). Now the default; `:voice default` restores the low reference hum, which is quiet on a buzzer. Profile pitch carries over (x5.4, capped 1.2 kHz).
+- **GLYPH-LCD self-test**: prompts on the LCD, 60 s per step. Verified on hardware.
+
 - **GLYPH bridge** (`lcd/bridge/glyph_bridge.py`): terminal/Telegram chat -> Claude (`claude-opus-5-5`, streamed, low effort, server-side refusal fallback) -> face over serial or the Kit Lab relay. Sends `:typing`, `> you`, then reply tokens. `--echo` brain for wiring tests.
 
 - **GLYPH-LCD profiles**: basic, kawaii (+ beauty mark, ROM middle dot), robot, grumpy, brows (new). Sleepy profile retired; its faces stay. 7 brow eyes and 8 brow faces. Each profile has its own curious face.

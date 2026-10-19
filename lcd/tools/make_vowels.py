@@ -38,10 +38,30 @@ for _ in range(30):
     t = np.mean([tilt(render(fm, pole)) for fm in VOWELS.values()])
     lo, hi = (lo, pole) if t < TILT_DB else (pole, hi)
 
+def buzzer_period(fm, f0=700, scale=1.6):
+    """Band-limited bright vowel for a passive buzzer: additive harmonics of f0 up to the 16 kHz
+    synth's Nyquist at the highest pitch it plays (~1.15 x f0), shaped by the vowel's formants
+    (scaled up, like a small voice) and lifted around 2.7 kHz, so the energy lands where buzzers are loud."""
+    n_harm = int(8000 / (f0 * 1.15))
+    t = np.arange(N) / N
+    out = np.zeros(N)
+    for k in range(1, n_harm + 1):
+        f, gain = k * f0, 1.0
+        for fc, bw in zip(fm, BW):
+            fc *= scale
+            gain *= 1 / np.sqrt((1 - (f / fc) ** 2) ** 2 + (f * bw * 1.5 / fc ** 2) ** 2)
+        lift = 1 / np.sqrt((1 - (f / 2700) ** 2) ** 2 + (f / 2700 / 1.4) ** 2)   # the buzzer's loud spot
+        out += gain ** 0.35 * lift ** 2 * np.sin(2 * np.pi * k * t)   # vowel colours, buzzer decides loudness
+    out -= out.mean()
+    return np.round(out / np.abs(out).max() * 127).astype(int)
+
 rows = []
 for v, fm in VOWELS.items():
     p = render(fm, pole); p = np.round(p / np.abs(p).max() * 127).astype(int)
     rows.append('  {' + ', '.join(map(str, p)) + '},  // ' + v)
 print(f'// tilt k {pole:.3f}, mean tilt {t:.1f} dB (target {TILT_DB})')
-print('const int8_t VOX[6][128] PROGMEM = {  // one period per vowel, "aeiouy", made by tools/make_vowels.py')
+for v, fm in VOWELS.items():
+    rows.append('  {' + ', '.join(map(str, buzzer_period(fm))) + '},  // ' + v + ' (buzzer voice)')
+print('// rows 0-5: the reference-fitted low hum; rows 6-11: bright band-limited buzzer voice')
+print('const int8_t VOX[12][128] PROGMEM = {  // one period per vowel, "aeiouy" x2, made by tools/make_vowels.py')
 print('\n'.join(rows)); print('};')
