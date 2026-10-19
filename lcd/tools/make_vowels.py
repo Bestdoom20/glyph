@@ -55,13 +55,23 @@ def buzzer_period(fm, f0=700, scale=1.6):
     out -= out.mean()
     return np.round(out / np.abs(out).max() * 127).astype(int)
 
-rows = []
-for v, fm in VOWELS.items():
-    p = render(fm, pole); p = np.round(p / np.abs(p).max() * 127).astype(int)
-    rows.append('  {' + ', '.join(map(str, p)) + '},  // ' + v)
+def shrink(p, n):
+    """Band-limit a 128-sample period to n samples by FFT truncation (keeps harmonics < n/2 exactly)."""
+    S = np.fft.rfft(p)[: n // 2]
+    S[0] = 0
+    out = np.fft.irfft(S, n) * n / len(p)
+    return out
+
+def q(p):
+    return np.round(p / np.abs(p).max() * 127).astype(int)
+
+hum = [q(shrink(render(fm, pole), 64)) for fm in VOWELS.values()]
+buz = [q(shrink(buzzer_period(fm).astype(float), 32)) for fm in VOWELS.values()]
 print(f'// tilt k {pole:.3f}, mean tilt {t:.1f} dB (target {TILT_DB})')
-for v, fm in VOWELS.items():
-    rows.append('  {' + ', '.join(map(str, buzzer_period(fm))) + '},  // ' + v + ' (buzzer voice)')
-print('// rows 0-5: the reference-fitted low hum; rows 6-11: bright band-limited buzzer voice')
-print('const int8_t VOX[12][128] PROGMEM = {  // one period per vowel, "aeiouy" x2, made by tools/make_vowels.py')
-print('\n'.join(rows)); print('};')
+print('// one period per vowel ("aeiouy"); the ISR interpolates between samples. Made by tools/make_vowels.py')
+print('const int8_t VOXH[6][64] PROGMEM = {   // low reference hum: harmonics 1-31 (above that it is 40-60 dB down)')
+print('\n'.join('  {' + ', '.join(map(str, r)) + '},  // ' + v for r, v in zip(hum, VOWELS)))
+print('};')
+print('const int8_t VOXB[6][32] PROGMEM = {   // bright buzzer voice: harmonics 1-15 (it uses up to 9)')
+print('\n'.join('  {' + ', '.join(map(str, r)) + '},  // ' + v for r, v in zip(buz, VOWELS)))
+print('};')

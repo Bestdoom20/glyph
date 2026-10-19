@@ -89,6 +89,30 @@ Non-streaming API? `reveal(g, fullText)` plays it back word-by-word so the face 
 
 ## GLYPH-LCD — the face on real hardware
 
+<div align="center">
+
+<img src="lcd/media/glyph-lcd-talking.gif" width="420" alt="GLYPH on a 16x2 LCD, talking">
+
+<img src="lcd/media/profiles.png" width="640" alt="profiles: basic, kawaii, robot, grumpy, brows, custom">
+
+**[🎨 Face Builder](https://bestdoom20.github.io/glyph/face-builder/)** · **[🔬 Kit Lab simulator](https://bestdoom20.github.io/glyph/lab/)** · [Wiring](lcd/WIRING.md) · [Voice notes](lcd/VOICE-NOTES.md)
+
+</div>
+
+**Build your own face.** Draw the base eyes in the [Face Builder](https://bestdoom20.github.io/glyph/face-builder/) and send them over USB from the browser (Web Serial), or paste the `:eyes …` command into the Serial Monitor. Glyph stores the face in EEPROM, and the **universal expression engine** derives every expression from your eyes: happy (top-edge arc), surprised (widened), blink (a line as wide as your eye), sleepy and annoyed (lids), angry and sad (corner cuts). Hearts, spirals and stars stay universal. Talking, blinking, glancing, emotions and all 38 faces work on your design with no extra drawing.
+
+**Kit Lab.** A 1:1 browser simulator of the Freenove kit: byte-level PCF8574/HD44780 emulation with the A00 font, I2C bus timing, the same sketch running live (translated from C), the buzzer voice in WebAudio with a buzzer model, clickable switches and button, an interactive build guide (zoom, numbered steps, connection bands) for two layouts, and a parts bin. Run it locally with `python3 lcd/lab/lab_server.py`, then point `glyph_bridge.py --lab` at it.
+
+<img src="lcd/media/compact.png" width="640" alt="compact breadboard layout in the Kit Lab">
+
+**The small engine.** Everything below fits an ATmega328P with room to spare: **59% flash, 40% RAM**.
+- **No libraries:** its own I2C master and a batched LCD driver (a CGRAM slot in ~3.5 ms, about 4x faster than LiquidCrystal_I2C).
+- **Voice:** a 16 kHz wavetable voice ISR with linear interpolation and band-limited vowel tables in flash. A bright buzzer voice is the default; the reference-fitted low hum is one command away.
+- **Feelings:** a valence/arousal engine with a word lexicon.
+- **Animation:** profile data rows, squash/pop transitions, micro-saccades, and frame skipping when nothing changed.
+- **Power:** idle-sleep between frames, and a POWER switch that puts the chip into power-down sleep.
+
+
 [`lcd/glyph_lcd/glyph_lcd.ino`](lcd/glyph_lcd/glyph_lcd.ino) puts GLYPH on a **1602 I2C LCD** (HD44780 + PCF8574 backpack) driven by an Arduino Uno or clone. 38 faces: `idle happy joy love sad cry shock angry annoyed smug excited dizzy sleepy sleep kiss tongue evil cute confused uwu sparkle owo worried robot robohappy roboalert robosad roboangry grumpy content browidle browhappy browwow browangry browsad browskeptic browtired browcry`.
 
 ```

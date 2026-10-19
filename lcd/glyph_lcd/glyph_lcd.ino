@@ -22,6 +22,8 @@
     :sleep  :wake    sleep / wake
     :mute  :unmute   buzzer off / on        :pitch 130   voice base pitch in Hz
     :voice buzzer    bright voice for the passive buzzer (default)
+    :eyes <hex>      store a custom face (from the face builder); every expression is derived from it
+    :mode custom     switch to it (also in the MODE button cycle once one is stored)
     :voice guard|default|woman|child|old   low hum voices (the reference tone; quiet on a buzzer)
     :rate 20         talk as if text arrived at 20 tokens/s (0 = normal); streamed text sets its own pace
   It plays a demo script until the first line arrives. Lines over 127 chars are cut.
@@ -34,6 +36,7 @@
   need ~100-200 ms to settle, so the crystals, not the bus, set the ~8-12 changes/s ceiling.
 */
 #include <avr/sleep.h>
+#include <EEPROM.h>
 
 #define BUZZER 9
 #define PWR_SW 3
@@ -223,15 +226,17 @@ const int8_t EXV[][2] PROGMEM = {   // where each face sits in feeling space: va
 #define F_SIGH 8                 // sighs instead of humming
 #define F_HUM 16                 // hums when idle
 #define F_MOLE 32                // beauty mark on the right cheek
-const char MODE_NAMES[] PROGMEM = "basic|kawaii|robot|grumpy|brows";
+const char MODE_NAMES[] PROGMEM = "basic|kawaii|robot|grumpy|brows|custom";
 const int8_t MODES[][16] PROGMEM = {
   {7, 6, 10,   4, 0, 1,     4, 12, 29,  3, 5,   10, 0,    65, F_HUM, 18},                     // basic
   {5, 21, 20,  22, 19, 10,  4, 12, 1,   3, 5,   30, 15,   100, F_BLUSH | F_BOUNCY | F_HUM | F_MOLE, 21},   // kawaii
   {27, 25, 24, 26, 23, 24,  26, 23, 23, 24, 26, 0, 0,     55, F_MONO, 25},                    // robot
   {7, 8, 9,    28, 28, 9,   4, 12, 28,  9, 4,   -25, -10, 50, F_SIGH, 8},                     // grumpy
   {33, 32, 31, 34, 30, 31,  34, 36, 31, 31, 37, 5, 5,     60, F_HUM, 35},                     // brows
+  {7, 6, 10,   4, 0, 1,     4, 12, 29,  3, 5,   10, 0,    65, F_HUM, 18},                     // custom: your eyes, every expression derived
 };
-#define N_MODES 5
+#define N_MODES 6
+#define M_CUSTOM 5
 
 // ---- feeling words: what a word does to valence / arousal, and what kind of word it is ----
 // kind 0 plain · 1 sad/scared (if YOU say it: concern) · 2 hostile (hurts) · 3 its name (perks up) · 4 curious
@@ -255,10 +260,8 @@ const byte LEXK[] PROGMEM = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 // demo: ':' = command, '>' = something YOU say (it listens and reacts), anything else it says
 const char DEMO[] PROGMEM = "hello! i am glyph, a little face for this screen.|> hi glyph!|hi! oh, you know my name!|"
                             "> i am kind of sad today|oh no. i am sorry. i am here for you.|> you are stupid|hey! that is not nice...|"
-                            "> haha sorry, you are awesome|aww, thank you! that makes me happy!|"
-                            ":mode kawaii|hiii! now i am super cute, uwu|> do you love pixels?|i LOVE tiny pixels so much!|"
-                            ":mode robot|beep. i am a robot now. HELLO HUMAN.|:mode grumpy|ugh. what do you want?|"
-                            ":mode brows|hmm. i have eyebrows now. what do you think?|> wow, nice brows!|why thank you!|:mode basic|type to me in the serial box. start with > to talk TO me.";
+                            "> haha sorry, you are awesome|aww, thank you! that makes me happy!|> do you love pixels?|i LOVE tiny pixels so much!|"
+                            "whoa... i think i need a nap.|tap my button to change my face. hold it to stop me talking!";
 
 // vowel -> which VOX waveform plays (the vowel picks the sound, never the pitch) and mouth shape
 const char VOWELS[] = "aeiouy";
@@ -267,20 +270,22 @@ const int HUM[] = {196, 220, 175};
 const int SIGH[] = {150, 125, 100};
 
 // tilt k 0.505, mean tilt 39.2 dB (target 39.2)
-// rows 0-5: the reference-fitted low hum; rows 6-11: bright band-limited buzzer voice
-const int8_t VOX[12][128] PROGMEM = {  // one period per vowel, "aeiouy" x2, made by tools/make_vowels.py
-  {-11, -4, 2, 9, 16, 27, 39, 52, 64, 72, 74, 71, 63, 52, 40, 29, 20, 13, 9, 8, 8, 9, 9, 8, 6, 4, 5, 8, 14, 22, 31, 41, 49, 54, 57, 56, 51, 45, 38, 31, 26, 21, 17, 12, 7, 1, -6, -13, -19, -25, -29, -30, -29, -26, -22, -19, -18, -21, -26, -35, -44, -54, -63, -71, -78, -82, -86, -89, -93, -97, -101, -104, -106, -102, -87, -59, -19, 28, 72, 105, 124, 127, 119, 104, 84, 63, 43, 26, 14, 7, 0, -11, -27, -49, -72, -91, -102, -103, -94, -77, -53, -26, 1, 25, 42, 51, 54, 52, 51, 51, 53, 55, 56, 52, 44, 32, 16, -4, -25, -45, -60, -68, -67, -61, -50, -38, -28, -19},  // a
-  {48, 47, 42, 35, 26, 18, 11, 7, 3, 1, -1, -2, -5, -7, -8, -5, -1, 6, 12, 19, 25, 31, 36, 41, 47, 54, 61, 67, 71, 73, 73, 73, 71, 69, 67, 65, 62, 56, 49, 41, 33, 25, 18, 12, 6, 0, -6, -13, -19, -25, -28, -31, -32, -34, -35, -38, -43, -48, -53, -58, -62, -66, -71, -77, -83, -91, -99, -106, -112, -117, -121, -125, -127, -123, -108, -85, -59, -37, -21, -7, 6, 20, 34, 51, 70, 88, 99, 102, 97, 91, 85, 79, 74, 68, 61, 51, 35, 15, -5, -21, -32, -40, -46, -53, -58, -65, -71, -77, -77, -71, -62, -51, -41, -32, -24, -17, -9, 0, 12, 25, 37, 45, 49, 51, 51, 50, 50, 49},  // e
-  {-49, -47, -46, -45, -41, -35, -28, -22, -16, -11, -5, 2, 9, 18, 26, 34, 40, 45, 51, 57, 64, 70, 75, 79, 82, 83, 85, 87, 89, 89, 89, 87, 84, 81, 78, 75, 72, 67, 62, 56, 50, 44, 38, 32, 26, 20, 13, 6, 0, -6, -11, -16, -21, -27, -32, -38, -44, -50, -55, -60, -65, -71, -78, -84, -89, -95, -100, -105, -110, -115, -120, -124, -127, -125, -117, -107, -99, -94, -90, -83, -72, -59, -45, -31, -19, -10, -3, 7, 19, 33, 44, 52, 58, 63, 66, 70, 75, 80, 83, 82, 78, 74, 71, 68, 65, 62, 56, 49, 39, 30, 23, 18, 12, 5, -3, -12, -20, -26, -31, -35, -37, -41, -46, -50, -52, -53, -52, -51},  // i
-  {33, 29, 26, 23, 20, 17, 14, 11, 8, 5, 2, -1, -3, -6, -8, -9, -10, -10, -9, -7, -4, 0, 5, 10, 17, 23, 30, 37, 44, 50, 55, 59, 62, 64, 64, 62, 59, 55, 50, 43, 36, 28, 20, 12, 4, -3, -10, -16, -21, -25, -28, -30, -31, -31, -31, -30, -29, -28, -27, -27, -28, -29, -32, -35, -39, -44, -50, -57, -64, -71, -78, -84, -90, -94, -97, -96, -93, -85, -74, -60, -43, -24, -2, 20, 43, 65, 84, 101, 114, 123, 127, 126, 120, 110, 95, 77, 56, 34, 11, -12, -34, -53, -69, -82, -91, -96, -98, -95, -89, -80, -69, -56, -42, -28, -14, -1, 11, 21, 29, 36, 40, 43, 44, 44, 43, 41, 39, 36},  // o
-  {-51, -50, -48, -45, -42, -37, -30, -23, -15, -7, 2, 11, 19, 28, 36, 43, 49, 55, 60, 64, 68, 72, 75, 78, 81, 83, 85, 87, 88, 88, 87, 86, 83, 80, 76, 71, 66, 60, 53, 47, 40, 34, 28, 22, 16, 11, 5, 0, -5, -9, -14, -18, -23, -27, -31, -35, -40, -44, -48, -52, -57, -61, -66, -72, -77, -83, -88, -94, -100, -106, -111, -117, -121, -125, -127, -127, -123, -116, -106, -94, -79, -63, -47, -30, -13, 3, 17, 29, 39, 46, 52, 57, 61, 64, 66, 69, 71, 73, 76, 78, 80, 80, 79, 77, 73, 67, 59, 51, 40, 30, 18, 7, -3, -12, -20, -27, -33, -37, -41, -43, -45, -46, -47, -48, -49, -50, -51, -51},  // u
-  {-51, -48, -46, -44, -42, -37, -30, -23, -19, -15, -7, 3, 10, 15, 20, 29, 39, 46, 50, 55, 63, 70, 74, 77, 80, 84, 87, 89, 89, 89, 89, 89, 87, 84, 80, 77, 74, 70, 64, 57, 52, 48, 42, 35, 27, 21, 16, 10, 2, -5, -10, -15, -20, -27, -33, -39, -44, -49, -55, -62, -68, -73, -78, -85, -92, -98, -102, -107, -112, -119, -123, -126, -127, -122, -113, -108, -109, -106, -90, -71, -65, -66, -56, -33, -15, -11, -10, 5, 26, 38, 39, 42, 54, 67, 72, 72, 74, 78, 81, 82, 81, 77, 72, 70, 70, 65, 54, 45, 41, 40, 31, 17, 8, 6, 3, -7, -20, -26, -27, -30, -38, -45, -48, -47, -48, -51, -53, -53},  // y
-  {0, 21, 42, 61, 79, 94, 106, 116, 123, 126, 127, 125, 120, 114, 105, 95, 85, 73, 61, 50, 38, 27, 17, 8, 0, -7, -12, -17, -20, -23, -24, -24, -24, -22, -20, -18, -15, -12, -8, -4, 0, 4, 8, 11, 15, 18, 21, 23, 25, 27, 28, 29, 29, 28, 27, 26, 24, 22, 20, 17, 14, 10, 7, 4, 0, -4, -7, -10, -14, -17, -20, -22, -24, -26, -27, -28, -29, -29, -28, -27, -25, -23, -21, -18, -15, -11, -8, -4, 0, 4, 8, 12, 15, 18, 20, 22, 24, 24, 24, 23, 20, 17, 12, 7, 0, -8, -17, -27, -38, -50, -61, -73, -85, -95, -105, -114, -120, -125, -127, -126, -123, -116, -106, -94, -79, -61, -42, -21},  // a (buzzer voice)
-  {0, 23, 44, 65, 83, 98, 110, 119, 125, 127, 126, 122, 116, 108, 98, 88, 76, 65, 54, 44, 34, 26, 19, 14, 10, 7, 6, 7, 9, 12, 16, 20, 25, 30, 35, 40, 44, 47, 50, 52, 52, 52, 51, 49, 46, 42, 38, 33, 28, 23, 18, 13, 8, 5, 1, -2, -4, -5, -6, -6, -5, -4, -3, -2, 0, 2, 3, 4, 5, 6, 6, 5, 4, 2, -1, -5, -8, -13, -18, -23, -28, -33, -38, -42, -46, -49, -51, -52, -52, -52, -50, -47, -44, -40, -35, -30, -25, -20, -16, -12, -9, -7, -6, -7, -10, -14, -19, -26, -34, -44, -54, -65, -76, -88, -98, -108, -116, -122, -126, -127, -125, -119, -110, -98, -83, -65, -44, -23},  // e (buzzer voice)
-  {0, 25, 48, 70, 89, 104, 116, 123, 127, 127, 123, 117, 108, 97, 86, 74, 62, 50, 40, 31, 23, 16, 12, 9, 7, 7, 8, 10, 13, 16, 19, 22, 25, 27, 29, 30, 29, 29, 27, 25, 23, 20, 18, 15, 13, 12, 11, 10, 10, 11, 11, 12, 13, 14, 14, 15, 14, 14, 13, 12, 10, 8, 5, 3, 0, -3, -5, -8, -10, -12, -13, -14, -14, -15, -14, -14, -13, -12, -11, -11, -10, -10, -11, -12, -13, -15, -18, -20, -23, -25, -27, -29, -29, -30, -29, -27, -25, -22, -19, -16, -13, -10, -8, -7, -7, -9, -12, -16, -23, -31, -40, -50, -62, -74, -86, -97, -108, -117, -123, -127, -127, -123, -116, -104, -89, -70, -48, -25},  // i (buzzer voice)
-  {0, 19, 37, 54, 70, 84, 96, 106, 115, 121, 125, 127, 127, 126, 124, 120, 116, 112, 107, 103, 98, 94, 90, 86, 82, 79, 77, 74, 72, 71, 69, 68, 66, 65, 64, 62, 61, 60, 58, 56, 55, 53, 51, 49, 47, 45, 43, 41, 39, 36, 34, 31, 29, 26, 24, 21, 19, 16, 14, 12, 9, 7, 5, 2, 0, -2, -5, -7, -9, -12, -14, -16, -19, -21, -24, -26, -29, -31, -34, -36, -39, -41, -43, -45, -47, -49, -51, -53, -55, -56, -58, -60, -61, -62, -64, -65, -66, -68, -69, -71, -72, -74, -77, -79, -82, -86, -90, -94, -98, -103, -107, -112, -116, -120, -124, -126, -127, -127, -125, -121, -115, -106, -96, -84, -70, -54, -37, -19},  // o (buzzer voice)
-  {0, 19, 38, 56, 73, 88, 100, 110, 118, 123, 126, 127, 126, 123, 118, 113, 106, 99, 92, 84, 77, 70, 64, 58, 52, 47, 42, 38, 35, 31, 28, 25, 22, 19, 16, 13, 10, 7, 4, 1, -2, -5, -7, -10, -12, -13, -14, -15, -16, -16, -16, -15, -14, -14, -12, -11, -10, -9, -7, -6, -5, -3, -2, -1, 0, 1, 2, 3, 5, 6, 7, 9, 10, 11, 12, 14, 14, 15, 16, 16, 16, 15, 14, 13, 12, 10, 7, 5, 2, -1, -4, -7, -10, -13, -16, -19, -22, -25, -28, -31, -35, -38, -42, -47, -52, -58, -64, -70, -77, -84, -92, -99, -106, -113, -118, -123, -126, -127, -126, -123, -118, -110, -100, -88, -73, -56, -38, -19},  // u (buzzer voice)
-  {0, 25, 49, 71, 90, 105, 116, 124, 127, 127, 124, 119, 112, 104, 96, 87, 79, 71, 63, 56, 49, 43, 37, 31, 26, 22, 19, 16, 15, 14, 14, 15, 16, 18, 20, 22, 24, 25, 27, 28, 28, 29, 28, 28, 27, 26, 24, 22, 21, 19, 17, 15, 14, 13, 11, 10, 9, 8, 7, 6, 5, 4, 3, 1, 0, -1, -3, -4, -5, -6, -7, -8, -9, -10, -11, -13, -14, -15, -17, -19, -21, -22, -24, -26, -27, -28, -28, -29, -28, -28, -27, -25, -24, -22, -20, -18, -16, -15, -14, -14, -15, -16, -19, -22, -26, -31, -37, -43, -49, -56, -63, -71, -79, -87, -96, -104, -112, -119, -124, -127, -127, -124, -116, -105, -90, -71, -49, -25},  // y (buzzer voice)
+// one period per vowel ("aeiouy"); the ISR interpolates between samples. Made by tools/make_vowels.py
+const int8_t VOXH[6][64] PROGMEM = {   // low reference hum: harmonics 1-31 (above that it is 40-60 dB down)
+  {-11, 2, 17, 40, 66, 76, 64, 41, 20, 10, 9, 9, 6, 5, 14, 32, 50, 58, 53, 39, 26, 17, 7, -6, -20, -30, -30, -22, -19, -27, -46, -65, -80, -88, -95, -104, -109, -90, -19, 74, 127, 122, 86, 44, 15, 0, -28, -74, -105, -97, -55, 1, 43, 55, 52, 54, 57, 46, 16, -26, -61, -69, -52, -28},  // a
+  {48, 42, 26, 11, 3, -1, -5, -8, -1, 12, 25, 36, 47, 61, 71, 73, 71, 67, 62, 49, 33, 18, 6, -6, -19, -28, -32, -35, -43, -53, -62, -71, -83, -99, -112, -121, -127, -108, -59, -21, 6, 34, 70, 99, 97, 85, 74, 61, 35, -5, -32, -46, -58, -71, -77, -62, -41, -24, -9, 12, 37, 49, 51, 50},  // e
+  {-49, -46, -41, -28, -16, -5, 9, 26, 40, 51, 64, 75, 81, 85, 89, 89, 84, 78, 72, 62, 50, 38, 26, 13, 0, -11, -21, -32, -44, -55, -65, -78, -89, -100, -110, -120, -127, -117, -99, -90, -72, -45, -19, -3, 19, 44, 58, 66, 75, 83, 78, 71, 65, 56, 39, 23, 12, -3, -20, -31, -37, -46, -52, -52},  // i
+  {33, 26, 20, 14, 8, 2, -3, -8, -10, -9, -4, 5, 17, 30, 44, 55, 62, 64, 59, 50, 36, 20, 4, -10, -21, -28, -31, -31, -29, -27, -28, -32, -39, -50, -64, -78, -90, -97, -93, -74, -43, -2, 43, 84, 114, 127, 120, 95, 56, 11, -34, -69, -91, -98, -89, -69, -42, -14, 11, 29, 40, 44, 43, 39},  // o
+  {-51, -48, -42, -30, -15, 2, 19, 36, 49, 60, 68, 75, 81, 85, 88, 87, 83, 76, 66, 53, 40, 28, 16, 5, -5, -14, -23, -31, -40, -48, -57, -66, -77, -88, -100, -111, -121, -127, -123, -106, -79, -47, -13, 17, 39, 52, 61, 66, 71, 76, 80, 79, 73, 59, 40, 18, -3, -20, -33, -41, -45, -47, -49, -51},  // u
+  {-51, -46, -42, -29, -20, -7, 10, 20, 39, 50, 62, 74, 79, 87, 89, 88, 87, 80, 74, 64, 52, 42, 27, 16, 2, -10, -20, -33, -44, -55, -68, -78, -92, -101, -113, -122, -127, -112, -109, -89, -65, -55, -15, -9, 26, 39, 54, 72, 73, 81, 81, 72, 69, 54, 41, 31, 8, 3, -20, -27, -38, -47, -48, -53},  // y
+};
+const int8_t VOXB[6][32] PROGMEM = {   // bright buzzer voice: harmonics 1-15 (it uses up to 9)
+  {0, 81, 127, 124, 88, 39, 0, -21, -24, -16, 0, 15, 26, 30, 25, 14, 0, -14, -25, -30, -26, -15, 0, 16, 24, 21, 0, -39, -88, -124, -127, -81},  // a
+  {0, 84, 127, 118, 78, 35, 10, 9, 26, 45, 53, 47, 29, 9, -4, -5, 0, 5, 4, -9, -29, -47, -53, -45, -26, -9, -10, -35, -78, -118, -127, -84},  // e
+  {0, 89, 127, 108, 62, 23, 7, 13, 25, 30, 23, 13, 10, 13, 14, 10, 0, -10, -14, -13, -10, -13, -23, -30, -25, -13, -7, -23, -62, -108, -127, -89},  // i
+  {0, 70, 114, 127, 116, 98, 82, 72, 66, 61, 55, 47, 39, 29, 19, 9, 0, -9, -19, -29, -39, -47, -55, -61, -66, -72, -82, -98, -116, -127, -114, -70},  // o
+  {0, 73, 119, 127, 107, 78, 53, 35, 22, 10, -2, -12, -16, -15, -10, -5, 0, 5, 10, 15, 16, 12, 2, -10, -22, -35, -53, -78, -107, -127, -119, -73},  // u
+  {0, 90, 127, 112, 79, 49, 26, 15, 16, 24, 28, 27, 21, 14, 9, 5, 0, -5, -9, -14, -21, -27, -28, -24, -16, -15, -26, -49, -79, -112, -127, -90},  // y
 };
 
 // ---- buzzer voice: wavetable synth -> Timer1 8-bit PWM at 62.5 kHz on D9 ----
@@ -290,7 +295,7 @@ const int8_t VOX[12][128] PROGMEM = {  // one period per vowel, "aeiouy" x2, mad
 // (swell 30 %, hold, release 30 %), the ~40 ms glide, the question slide and a +-1.5 % pitch wobble.
 // A note that starts while one is sounding re-swells from 40 %: legato babble, not beeps.
 // SIM-REPLACE-BEGIN (the lab swaps this block for the same model in WebAudio)
-volatile uint16_t vPhase, vInc, vBase, vTarget;  // 7.9 table phase (128 entries); step per sample: all 16-bit math
+volatile uint16_t vPhase, vInc, vBase, vTarget;  // 16-bit table phase (one wrap = one period); step per sample
 volatile uint16_t vLen, vPos, vA, vR, vEnv16, vUp, vDn;   // note in 4 ms ticks; envelope 8.8 and its steps
 volatile uint8_t vEnv, vSub, vVowel, vSeed = 1;
 volatile bool vRise;
@@ -320,7 +325,16 @@ void voiceStart(long freq, int ms, bool rise, byte vowelIdx) {
 
 ISR(TIMER2_COMPA_vect) {
   vPhase += vInc;
-  int8_t w = pgm_read_byte(&VOX[vVowel][vPhase >> 9]);
+  int8_t w, a, b;                // read between two samples (linear interpolation): small tables, smooth wave
+  if (vVowel < 6) {
+    byte i = vPhase >> 10, f = vPhase >> 3;            // 64 samples: index = top 6 bits, fraction = next 7
+    a = pgm_read_byte(&VOXH[vVowel][i]); b = pgm_read_byte(&VOXH[vVowel][(i + 1) & 63]);
+    w = a + (((int16_t)(b - a) * (f & 127)) >> 7);
+  } else {
+    byte i = vPhase >> 11, f = vPhase >> 4;            // 32 samples
+    a = pgm_read_byte(&VOXB[vVowel - 6][i]); b = pgm_read_byte(&VOXB[vVowel - 6][(i + 1) & 31]);
+    w = a + (((int16_t)(b - a) * (f & 127)) >> 7);
+  }
   vSeed ^= vSeed << 3; vSeed ^= vSeed >> 5; vSeed ^= vSeed << 1;          // xorshift8
   int8_t n = vSeed;
   int16_t mix = w - (w >> 3) + (((int16_t)n * vEnv) >> 11);               // breath ~ env^2: no hiss tail
@@ -545,6 +559,55 @@ void hearYou() {                 // a whole "> ..." line from you has arrived
   lastInput = now;
 }
 
+// ---- universal expressions: any custom base eye -> every expression ----
+// Each built-in eye shape stands for an expression; on a custom face the engine applies that
+// expression's operator to YOUR base eye instead of drawing the built-in shape.
+#define OP_BASE 0
+#define OP_WIDE 1
+#define OP_CLOSED 2
+#define OP_HAPPY 3
+#define OP_SLEEPY 4
+#define OP_ANGRY 5
+#define OP_SAD 6
+#define OP_LID 7
+#define OP_KEEP 8                // hearts, spirals, stars, chevrons stay universal overlays
+const byte OP_OF[] PROGMEM = {OP_BASE, OP_WIDE, OP_CLOSED, OP_HAPPY, OP_HAPPY, OP_ANGRY, OP_KEEP, OP_KEEP, OP_KEEP, OP_LID,
+                              OP_BASE, OP_SAD, OP_ANGRY, OP_SLEEPY, OP_HAPPY, OP_KEEP, OP_BASE, OP_SLEEPY,
+                              OP_BASE, OP_WIDE, OP_ANGRY, OP_SAD, OP_HAPPY, OP_SLEEPY, OP_WIDE};   // per EYES index
+const uint16_t CUT[2][3] PROGMEM = {{0b1111000000, 0b1111110000, 0b1111111100},     // angry: inner-top corner (left eye)
+                                    {0b0000001111, 0b0000111111, 0b0011111111}};    // sad: outer-top corner
+uint16_t cbL[8];                // custom base eyes (EEPROM): left
+uint16_t cbR[8];                // right
+bool hasCustom = false;
+uint16_t er[8];
+
+void derive(byte op, bool right) {   // er[] = op applied to the custom base eye
+  const uint16_t *b = right ? cbR : cbL;
+  uint16_t w = 0;
+  byte top = 8;
+  for (byte r = 0; r < 8; r++) { er[r] = b[r]; w |= b[r]; if (b[r] && top == 8) top = r; }
+  if (op == OP_WIDE)
+    for (byte r = 0; r < 8; r++) er[r] = (b[r] | b[r] << 1 | b[r] >> 1 | (r ? b[r - 1] : 0) | (r < 7 ? b[r + 1] : 0)) & 0x3FF;
+  if (op == OP_CLOSED) for (byte r = 0; r < 8; r++) er[r] = r == 4 ? w : 0;
+  if (op == OP_HAPPY)            // keep only the eye's top edge, lowered 2 rows: round eyes become ^
+    for (int8_t r = 7; r >= 0; r--) er[r] = r >= 2 ? b[r - 2] & ~(r >= 3 ? b[r - 3] : 0) : 0;
+  if (op == OP_SLEEPY || op == OP_LID) {
+    byte lid = op == OP_SLEEPY ? 4 : 2;
+    for (byte r = 0; r < lid; r++) er[r] = 0;
+    er[lid] |= w;
+  }
+  if (op == OP_ANGRY || op == OP_SAD)
+    for (byte i = 0; i < 3 && top + i < 8; i++) {
+      uint16_t m = pgm_read_word(&CUT[op == OP_SAD ? 1 : 0][i]);
+      er[top + i] &= right ? mirror10(m) : m;
+    }
+}
+
+void loadCustom() {              // EEPROM: 'G', then 8 rows left eye, 8 rows right eye (uint16 little-endian)
+  hasCustom = EEPROM.read(0) == 'G';
+  for (byte i = 0; i < 16; i++) (i < 8 ? cbL : cbR)[i & 7] = EEPROM.read(1 + i * 2) | (EEPROM.read(2 + i * 2) << 8);
+}
+
 // ---- drawing ----
 uint16_t mirror10(uint16_t v) {
   uint16_t r = 0;
@@ -565,15 +628,19 @@ void sendPair(byte slot) {     // rows[] (10 px) -> two 5 px slots
   upload(slot + 1);
 }
 
-void buildEye(byte shape, bool mirror, byte mask, int8_t look) {   // mask: 0 open, 1 half, 2 closed
+void buildEye(byte shape, bool mirror, byte mask, int8_t look, bool right) {   // mask: 0 open, 1 half, 2 closed
+  byte op = pgm_read_byte(&OP_OF[shape]);
+  bool custom = mode == M_CUSTOM && op != OP_KEEP;
+  if (custom) derive(op, right);
   for (byte r = 0; r < 8; r++) {
     int8_t src = r - bob;
-    uint16_t v = src >= 0 ? pgm_read_word(&EYES[shape][src]) : 0;
-    if (mirror) v = mirror10(v);
+    uint16_t v = src < 0 ? 0 : custom ? er[src] : pgm_read_word(&EYES[shape][src]);
+    if (mirror && !custom) v = mirror10(v);
     if (look > 0) v = v >> look;
     if (look < 0) v = (v << -look) & 0x3FF;
-    byte top = shape >= FIRST_BROW ? 4 : 3;     // brow eyes sit lower, under the brow
-    if (mask && shape >= FIRST_BROW && r < 3 + bob) {}               // brows stay put
+    bool brow = shape >= FIRST_BROW && !custom;
+    byte top = brow ? 4 : 3;                    // brow eyes sit lower, under the brow
+    if (mask && brow && r < 3 + bob) {}         // brows stay put
     else if (mask == 1 && (r < top + bob || r > top + 2 + bob)) v = 0;
     else if (mask == 2) v = r == top + 1 + bob ? 0b0111111110 : 0;
     rows[r] = v;
@@ -671,12 +738,12 @@ void draw(unsigned long now) {
   bool mir = ex(face, 2) && !pop;
   byte mouth = yawning ? V_OPEN : (viseme >= 0 ? viseme : ex(face, 3));
   uint32_t key = eL | ((uint32_t)eR << 5) | ((uint32_t)mir << 10) | ((uint32_t)mask << 11) | ((uint32_t)(look + 4) << 13)
-               | ((uint32_t)bob << 16) | ((uint32_t)mouth << 17);
+               | ((uint32_t)bob << 16) | ((uint32_t)mouth << 17) | ((uint32_t)mode << 22);
   if (key != lastKey) {
     lastKey = key;
-    buildEye(eL, false, mask, look);
+    buildEye(eL, false, mask, look, false);
     sendPair(0);
-    buildEye(eR, mir, mask, look);
+    buildEye(eR, mir, mask, look, true);
     sendPair(2);
     buildMouth(mouth);
     sendPair(4);
@@ -712,7 +779,7 @@ int charTime(char c) {           // letter ~1/13 s, comma 3x, sentence end 6x; e
   int t = 75;
   if (c == ',') t = 225;
   if (c == '.' || c == '!' || c == '?') t = 450;
-  return (long)t * (ex(face, 7) - aro / 8) / 100;
+  return ((long)t * (ex(face, 7) - aro / 8) * 41) >> 12;   // x/100 as *41>>12
 }
 
 void startPhrase(byte from) {    // read ahead to the phrase end: sets the tune, its words move the feeling
@@ -736,7 +803,7 @@ bool wordIs(byte pos, bool shout) {   // shout: whole word in CAPS; else: word e
 
 void note(long f, unsigned long now, int len, int8_t mouth, bool rise, byte v) {
   sylFreq = f; sylStart = now; sylEnd = now + len; sylViseme = mouth;
-  if (vset) f = min(f * 54 / 10, 1200L);         // buzzer voice: ~5.4x up, into the buzzer's loud range
+  if (vset) f = min((f * 1382) >> 8, 1200L);     // buzzer voice: ~5.4x up, into the buzzer's loud range
   if (!muted) voiceStart(f, len, rise, v + vset);
 }
 
@@ -749,15 +816,15 @@ void startSyllable(byte pos, int8_t v, unsigned long now) {
       int tri = now % 500; tri = tri < 250 ? tri : 500 - tri;
       f = f + f * (tri - 125) * 4 / 12500;
     }
-    f = f * (100 - min(phraseK * 3, 21)) / 100;  // the tune drifts down through the phrase
-    if (phraseHigh) f = f * 120 / 100;
-    if (fading) f = f * 85 / 100;
-    if (shout) f = f * 130 / 100;
-    f = f + f * rnd(-3, 4) / 100;             // no two buzzes alike
+    f = (f * (256 - min(phraseK * 8, 54))) >> 8;  // the tune drifts down through the phrase (-3 %/syllable, max -21 %)
+    if (phraseHigh) f = (f * 307) >> 8;           // +20 %
+    if (fading) f = (f * 218) >> 8;               // -15 %
+    if (shout) f = (f * 333) >> 8;                // +30 %
+    f = f + ((f * rnd(-8, 9)) >> 8);              // +-3 %: no two buzzes alike
   }
   phraseK++;
   squint = shout;
-  note(f, now, max(50L, (long)(fading ? 100 : 160) * ex(face, 7) / 100 * pace / 100), V_MOUTH[v], !mono && wordIs(pos, false), v);
+  note(f, now, max(50L, ((long)(fading ? 100 : 160) * ex(face, 7) * pace) / 10000), V_MOUTH[v], !mono && wordIs(pos, false), v);
 }
 
 void tickVoice(unsigned long now) {   // mouth follows the note's envelope; the timer plays it
@@ -815,7 +882,7 @@ void tickSpeech(unsigned long now) {
   if (c == '?') flashFace(cell(15), 700);
   if (isEnd(c)) needPhrase = true;
   int p = sayLen - sayPos > 100 ? 25 : pace;      // buffer nearly full: catch up
-  nextChar = now + (long)charTime(c) * p / 100;
+  nextChar = now + (((long)charTime(c) * p * 41) >> 12);
   lastInput = now;
 }
 
@@ -851,6 +918,7 @@ long numAt(byte from) {
 
 void setMode(byte m) {
   mode = m % N_MODES;
+  if (mode == M_CUSTOM && !hasCustom) mode = 0;
   putCh(flags() & F_MOLE ? 0xA5 : ' ', 14, 1);   // beauty mark (ROM middle dot), right cheek
   voiceBase = (byte)md(13) * 2;
   wobble = false;
@@ -863,7 +931,7 @@ void wake(unsigned long now) {
   if (asleep) { asleep = false; flashFace(E_SHOCK, 600); }
 }
 
-const char CMDS[] PROGMEM = "rate|typing|list|sleep|wake|mute|unmute|mode|voice|pitch";
+const char CMDS[] PROGMEM = "rate|typing|list|sleep|wake|mute|unmute|mode|voice|pitch|eyes";
 const char VOICES[] PROGMEM = "guard|default|woman|child|old|buzzer";
 const byte VOICE_HZ[] = {50, 65, 100, 130, 57, 65};   // Hz / 2 (buzzer: the profile pitch, played up in the loud range)
 
@@ -892,6 +960,20 @@ void handleCmd() {               // inLine holds ":word [arg]"
     case 7: { int8_t m = findName(MODE_NAMES, sp + 1, false); setMode(m >= 0 ? m : mode + 1); return; }   // unknown/next cycles
     case 8: { int8_t v = findName(VOICES, sp + 1, false); if (v < 0) v = 5; voiceBase = VOICE_HZ[v] * 2; wobble = v == 4; vset = v == 5 ? 6 : 0; return; }
     case 9: voiceBase = constrain(vset ? numAt(7) * 10 / 54 : numAt(7), 40, 3000); return;   // Hz you hear
+    case 10: {                   // :eyes <24 hex = left eye, 3 per row> [<24 hex = right eye>]  (one eye = mirrored)
+      byte h[48];
+      byte n = 0;
+      for (byte i = sp + 1; i < inLen && n < 48; i++) { char c = tolower(inLine[i]); if (isxdigit(c)) h[n++] = c <= '9' ? c - '0' : c - 'a' + 10; }
+      if (n != 24 && n != 48) { Serial.println(F("bad hex")); return; }
+      for (byte r = 0; r < 8; r++) {
+        cbL[r] = ((h[r * 3] << 8) | (h[r * 3 + 1] << 4) | h[r * 3 + 2]) & 0x3FF;
+        cbR[r] = n == 48 ? ((h[24 + r * 3] << 8) | (h[25 + r * 3] << 4) | h[26 + r * 3]) & 0x3FF : mirror10(cbL[r]);
+      }
+      EEPROM.update(0, 'G');
+      for (byte i = 0; i < 16; i++) { uint16_t v = (i < 8 ? cbL : cbR)[i & 7]; EEPROM.update(1 + i * 2, v & 255); EEPROM.update(2 + i * 2, v >> 8); }
+      hasCustom = true; setMode(M_CUSTOM); Serial.println(F("custom face saved"));
+      return;
+    }
   }
   int8_t f = findName(NAMES, 1, false);
   if (f < 0) { Serial.println(F("unknown, try :list")); return; }
@@ -1020,6 +1102,7 @@ void setup() {
   lcdBegin();
   lcdLight(true);
   memset(cg, 255, sizeof(cg));   // force first upload
+  loadCustom();
   lastKey = 0xFFFFFFFF;
   layout();
   rs16 = analogRead(A0) | 1;
@@ -1031,7 +1114,7 @@ void setup() {
   demoAt = now + 1200;
   lastInput = now;
   setMode(0);
-  Serial.println(F("GLYPH-LCD ready. Text = it talks, > text = you talk to it, :list :mode for more."));
+  Serial.println(F("GLYPH-LCD ready. text / > you / :list"));
 }
 
 void loop() {

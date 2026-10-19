@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Universal expression engine + custom faces**: `:eyes <hex>` stores base eyes in EEPROM (profile `custom`, also in the MODE cycle). Expression operators (wide, closed, happy, sleepy, lid, angry, sad) derive every face from them; overlays stay universal.
+- **Face Builder** (`lcd/face-builder/`, on GitHub Pages): draw eyes, preview 20 derived expressions, send over Web Serial, to the Kit Lab, or copy the command.
+- **Kit Lab** published (`lcd/lab/`): simulator + build guide with as-built and compact layouts; EEPROM emulation; relay with CORS for the builder.
+- **Demo no longer switches profiles**; tap MODE = wake / next profile, hold = non-stop talking.
+- **Voice tables shrunk losslessly**: hum 64 and buzzer 32 samples per vowel, band-limited, with interpolation in the ISR (-960 B). Percent math moved to multiply-and-shift. 62% -> 59% flash with the new features.
+- `lcd/WIRING.md`: as-built (hardware-verified) and compact (12 jumpers) layouts.
+
 - **GLYPH-LCD buzzer voice**: second vowel set (`VOX` rows 6-11) for real passive buzzers. Additive, band-limited harmonics of ~700 Hz with vowel formants compressed and lifted around 2.7 kHz (43-70% of energy in the loud band for open vowels). Now the default; `:voice default` restores the low reference hum, which is quiet on a buzzer. Profile pitch carries over (x5.4, capped 1.2 kHz).
 - **GLYPH-LCD self-test**: prompts on the LCD, 60 s per step. Verified on hardware.
 
