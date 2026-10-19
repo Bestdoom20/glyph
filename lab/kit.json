@@ -1,0 +1,667 @@
+{
+ "kit": "Freenove RFID Starter Kit V2.0 with Board V4 (Freenove repo lists FNK0034 / FNK0035)",
+ "amazon": "https://www.amazon.ca/dp/B08B4JY95V",
+ "repo": "https://github.com/Freenove/Freenove_RFID_Starter_Kit_V2.0",
+ "note": "Values marked (verify) are the usual part for this kit but read the number printed on your part before trusting them.",
+ "parts": [
+  {
+   "id": "board",
+   "name": "Freenove Control Board V4",
+   "qty": 1,
+   "cat": "Controller",
+   "sim": "planned",
+   "specs": {
+    "MCU": "ATmega328P-AU (TQFP-32), 16 MHz",
+    "Flash / SRAM / EEPROM": "32 KB (0.5 KB bootloader) / 2 KB / 1 KB",
+    "USB": "USB-C via CH340C serial chip (Arduino IDE board: Arduino Uno)",
+    "Logic level": "5 V",
+    "Digital I/O": "D0-D13 (PWM on 3, 5, 6, 9, 10, 11)",
+    "Analog in": "A0-A5, 10-bit ADC (0-1023 = 0-5 V)",
+    "I2C": "A4 = SDA, A5 = SCL (also on SDA/SCL pins by AREF)",
+    "SPI": "D10 SS, D11 MOSI, D12 MISO, D13 SCK (+ ICSP header)",
+    "UART": "D0 RX, D1 TX (shared with USB serial)",
+    "Interrupts": "D2 (INT0), D3 (INT1)",
+    "Pin current": "20 mA recommended, 40 mA absolute max per pin, 200 mA total",
+    "Power": "USB-C 5 V, or DC jack 7-12 V into AMS1117-5.0; 3V3 pin from AMS1117-3.3; auto source switch (LMV358 + SI2305)",
+    "On-board LEDs": "ON, L (D13), TX, RX",
+    "Size": "68.6 x 53.3 mm, Uno R3 footprint"
+   },
+   "learn": "Arduino Uno clone. Never drive a motor, relay coil or buzzer straight from a pin: 20 mA is the budget, use a transistor or driver chip."
+  },
+  {
+   "id": "lcd1602",
+   "name": "LCD1602 I2C module (1602 + PCF8574 backpack)",
+   "qty": 1,
+   "cat": "Display",
+   "sim": "full",
+   "specs": {
+    "Controller": "HD44780-compatible, A00 (Japanese) character ROM",
+    "Format": "16 chars x 2 lines, 5x8 dot cells",
+    "Backlight": "Blue, white characters (negative STN)",
+    "Module": "80 x 36 mm, viewing area 64.5 x 16 mm",
+    "Dot": "0.55 x 0.65 mm on 0.60 x 0.70 mm pitch; char 2.95 x 5.55 mm",
+    "Backpack": "PCF8574T = I2C 0x27, PCF8574AT = 0x3F (Freenove sketch tries both)",
+    "Pins": "GND, VCC (5 V), SDA (A4), SCL (A5)",
+    "Contrast": "blue trimpot on the backpack (V0)",
+    "Backlight jumper": "2-pin jumper on backpack; pull it to kill backlight",
+    "CGRAM": "8 custom 5x8 characters (codes 0-7, mirrored at 8-15)",
+    "Library": "LiquidCrystal_I2C (in kit Libraries/)"
+   },
+   "learn": "Blank screen or row of boxes = contrast pot or no init(). After createChar() call setCursor()/clear() or text goes into CGRAM."
+  },
+  {
+   "id": "breadboard",
+   "name": "Breadboard (project board), 830 tie points",
+   "qty": 1,
+   "cat": "Prototyping",
+   "sim": "rendered",
+   "specs": {
+    "Terminal strips": "63 columns, rows a-e and f-j; each 5-hole column half is one node",
+    "Power rails": "2 per side (+ red, - blue), 50 holes each",
+    "Pitch": "2.54 mm (0.1 in)",
+    "Size": "165 x 55 mm"
+   },
+   "learn": "Columns connect vertically in groups of 5; the center channel splits them. On some boards the rails break in the middle: check with the multimeter or a jumper."
+  },
+  {
+   "id": "led_red",
+   "name": "Red LED 5 mm",
+   "qty": 10,
+   "cat": "Output",
+   "sim": "planned",
+   "specs": {
+    "Vf": "~2.0 V",
+    "If": "20 mA max, 5-15 mA typical",
+    "Resistor @ 5 V": "220 ohm = ~13 mA",
+    "Polarity": "long leg = anode (+), flat edge = cathode (-)"
+   },
+   "learn": "R = (5 V - Vf) / I. Always put a resistor in series."
+  },
+  {
+   "id": "led_green",
+   "name": "Green LED 5 mm",
+   "qty": 4,
+   "cat": "Output",
+   "sim": "planned",
+   "specs": {
+    "Vf": "~2.0-3.0 V depending on shade (verify)",
+    "If": "20 mA max",
+    "Resistor @ 5 V": "220 ohm"
+   },
+   "learn": "Pure green/blue/white LEDs have higher Vf so look dimmer with the same resistor."
+  },
+  {
+   "id": "led_blue",
+   "name": "Blue LED 5 mm",
+   "qty": 4,
+   "cat": "Output",
+   "sim": "planned",
+   "specs": {
+    "Vf": "~3.0 V",
+    "If": "20 mA max",
+    "Resistor @ 5 V": "220 ohm = ~9 mA"
+   },
+   "learn": "Same rules as red, just more Vf."
+  },
+  {
+   "id": "led_yellow",
+   "name": "Yellow LED 5 mm",
+   "qty": 4,
+   "cat": "Output",
+   "sim": "planned",
+   "specs": {
+    "Vf": "~2.0 V",
+    "If": "20 mA max",
+    "Resistor @ 5 V": "220 ohm"
+   },
+   "learn": ""
+  },
+  {
+   "id": "rgb_led",
+   "name": "RGB LED 5 mm, 4-pin",
+   "qty": 1,
+   "cat": "Output",
+   "sim": "planned",
+   "specs": {
+    "Type": "common anode in Freenove kits (verify: longest leg = common)",
+    "Vf": "R ~2.0 V, G ~3.0 V, B ~3.0 V",
+    "Drive": "3 PWM pins through 220 ohm each; common anode -> 5 V, so analogWrite(255 - value)"
+   },
+   "learn": "Common anode inverts the logic: LOW = on."
+  },
+  {
+   "id": "bargraph",
+   "name": "LED bar graph, 10 segments",
+   "qty": 1,
+   "cat": "Output",
+   "sim": "planned",
+   "specs": {
+    "Package": "20-pin DIP, 10 independent LEDs",
+    "Vf": "~2.0 V per segment",
+    "Polarity": "printed side / label side = anode (verify with a resistor + 5 V)"
+   },
+   "learn": "Ten LEDs in one case. Each needs its own resistor (or a resistor per pin)."
+  },
+  {
+   "id": "seg7_1",
+   "name": "7-segment display, 1 digit",
+   "qty": 1,
+   "cat": "Output",
+   "sim": "planned",
+   "specs": {
+    "Type": "common anode (Freenove kits, verify part no. e.g. 5161BS)",
+    "Segments": "a-g + dp, 10 pins, 2 common",
+    "Vf": "~2.0 V per segment"
+   },
+   "learn": "Usually driven through the 74HC595 so 8 segments cost 3 Arduino pins."
+  },
+  {
+   "id": "seg7_4",
+   "name": "7-segment display, 4 digits",
+   "qty": 1,
+   "cat": "Output",
+   "sim": "planned",
+   "specs": {
+    "Type": "common anode (verify, e.g. 3461BS)",
+    "Pins": "12: 8 segment lines + 4 digit commons",
+    "Drive": "multiplexed: light one digit at a time, fast (>100 Hz)"
+   },
+   "learn": "Persistence of vision: digits flicker on one at a time, your eye merges them."
+  },
+  {
+   "id": "matrix8x8",
+   "name": "LED matrix 8x8",
+   "qty": 1,
+   "cat": "Output",
+   "sim": "planned",
+   "specs": {
+    "Pins": "16 (8 rows, 8 columns)",
+    "Type": "read part no. on side (1088AS = common cathode rows, 1088BS = common anode)",
+    "Drive": "two 74HC595 or row scan"
+   },
+   "learn": "64 LEDs, only 16 pins: scan row by row."
+  },
+  {
+   "id": "r220",
+   "name": "Resistor 220 ohm",
+   "qty": 20,
+   "cat": "Passive",
+   "sim": "planned",
+   "specs": {
+    "Bands": "red red black black brown (5-band, 1%)",
+    "Power": "1/4 W"
+   },
+   "learn": "LED current limiter."
+  },
+  {
+   "id": "r1k",
+   "name": "Resistor 1 k ohm",
+   "qty": 10,
+   "cat": "Passive",
+   "sim": "rendered",
+   "specs": {
+    "Bands": "brown black black brown brown",
+    "Power": "1/4 W"
+   },
+   "learn": "Transistor base resistor."
+  },
+  {
+   "id": "r10k",
+   "name": "Resistor 10 k ohm",
+   "qty": 10,
+   "cat": "Passive",
+   "sim": "planned",
+   "specs": {
+    "Bands": "brown black black red brown",
+    "Power": "1/4 W"
+   },
+   "learn": "Pull-up / pull-down, voltage divider with LDR/thermistor."
+  },
+  {
+   "id": "pot",
+   "name": "Rotary potentiometer 10 k ohm",
+   "qty": 3,
+   "cat": "Input",
+   "sim": "planned",
+   "specs": {
+    "Value": "10 k ohm linear (B103)",
+    "Pins": "outer = 5 V and GND, middle = wiper -> analog pin"
+   },
+   "learn": "Voltage divider you can turn. analogRead gives 0-1023."
+  },
+  {
+   "id": "cap104",
+   "name": "Ceramic capacitor 0.1 uF (104)",
+   "qty": 2,
+   "cat": "Passive",
+   "sim": "planned",
+   "specs": {
+    "Value": "100 nF",
+    "Polarity": "none"
+   },
+   "learn": "Decoupling next to chips, button debounce."
+  },
+  {
+   "id": "cap10u",
+   "name": "Electrolytic capacitor 10 uF",
+   "qty": 2,
+   "cat": "Passive",
+   "sim": "planned",
+   "specs": {
+    "Value": "10 uF, typically 25 V+ (read the can)",
+    "Polarity": "long leg +, stripe = -"
+   },
+   "learn": "Polarized: backwards = can pop."
+  },
+  {
+   "id": "btn_small",
+   "name": "Push button 6x6 mm",
+   "qty": 4,
+   "cat": "Input",
+   "sim": "planned",
+   "specs": {
+    "Pins": "4, pairs across the long side are always connected",
+    "Wiring": "pin -> button -> GND with pinMode(INPUT_PULLUP); pressed reads LOW"
+   },
+   "learn": "Contacts bounce for ~5-20 ms: debounce in code.",
+   "img": "push_button"
+  },
+  {
+   "id": "btn_big",
+   "name": "Big push button 12x12 mm + 4 colored caps",
+   "qty": 4,
+   "cat": "Input",
+   "sim": "planned",
+   "specs": {
+    "Pins": "4, same as small button",
+    "Caps": "red, green, blue, yellow"
+   },
+   "learn": ""
+  },
+  {
+   "id": "slide_sw",
+   "name": "Slide switch SPDT",
+   "qty": 2,
+   "cat": "Input",
+   "sim": "full",
+   "specs": {
+    "Pins": "3, middle = common"
+   },
+   "learn": "Middle pin connects to one side or the other.",
+   "img": "slide_switch"
+  },
+  {
+   "id": "tilt_sw",
+   "name": "Vibration (spring) switch",
+   "qty": 1,
+   "cat": "Input",
+   "sim": "planned",
+   "specs": {
+    "Type": "spring-in-tube contact, closes momentarily on shock",
+    "Wiring": "like a button with INPUT_PULLUP"
+   },
+   "learn": "Pulses are very short: read with an interrupt."
+  },
+  {
+   "id": "keypad",
+   "name": "4x4 membrane keypad",
+   "qty": 1,
+   "cat": "Input",
+   "sim": "planned",
+   "specs": {
+    "Keys": "1-9, 0, A-D, *, #",
+    "Pins": "8: 4 rows + 4 columns",
+    "Library": "Keypad (in kit)"
+   },
+   "learn": "Matrix scan: drive one row LOW, read which column goes LOW."
+  },
+  {
+   "id": "d4007",
+   "name": "Rectifier diode 1N4007",
+   "qty": 2,
+   "cat": "Semiconductor",
+   "sim": "planned",
+   "specs": {
+    "Rating": "1 A, 1000 V",
+    "Vf": "~0.7-1.0 V",
+    "Polarity": "stripe = cathode"
+   },
+   "learn": "Flyback diode across motor/relay coils (stripe to +)."
+  },
+  {
+   "id": "d4148",
+   "name": "Switching diode 1N4148",
+   "qty": 2,
+   "cat": "Semiconductor",
+   "sim": "planned",
+   "specs": {
+    "Rating": "~200-300 mA, 100 V, 4 ns",
+    "Polarity": "black stripe = cathode"
+   },
+   "learn": "Small signal diode, fast."
+  },
+  {
+   "id": "npn",
+   "name": "NPN transistor S8050",
+   "qty": 2,
+   "cat": "Semiconductor",
+   "sim": "rendered",
+   "specs": {
+    "Ic max": "500 mA (verify; some S8050 are 700 mA-1.5 A)",
+    "Vceo": "25 V",
+    "hFE": "~120-300",
+    "Pinout": "flat face toward you, legs down: E B C"
+   },
+   "learn": "Low-side switch: emitter to GND, load between 5 V and collector, 1 k from pin to base.",
+   "img": "npn"
+  },
+  {
+   "id": "pnp",
+   "name": "PNP transistor S8550",
+   "qty": 2,
+   "cat": "Semiconductor",
+   "sim": "planned",
+   "specs": {
+    "Ic max": "500 mA",
+    "Vceo": "-25 V",
+    "Pinout": "flat face toward you, legs down: E B C"
+   },
+   "learn": "High-side switch: emitter to 5 V, pin LOW = on."
+  },
+  {
+   "id": "aa_holder",
+   "name": "2x AA battery holder",
+   "qty": 1,
+   "cat": "Power",
+   "sim": "none",
+   "specs": {
+    "Output": "3 V (2 x 1.5 V), batteries not included"
+   },
+   "learn": "Separate supply for motors; tie its - to Arduino GND."
+  },
+  {
+   "id": "bat9v",
+   "name": "9 V battery clip to DC barrel plug",
+   "qty": 1,
+   "cat": "Power",
+   "sim": "none",
+   "specs": {
+    "Use": "plugs into board DC jack (7-12 V)"
+   },
+   "learn": "Runs the board untethered; a 9 V block dies fast."
+  },
+  {
+   "id": "l293d",
+   "name": "Motor driver chip L293D",
+   "qty": 1,
+   "cat": "IC",
+   "sim": "planned",
+   "specs": {
+    "Type": "dual H-bridge, 16-pin DIP",
+    "Current": "600 mA per channel, 1.2 A peak",
+    "Motor supply (VCC2, pin 8)": "4.5-36 V",
+    "Logic (VCC1, pin 16)": "5 V",
+    "Built-in": "flyback diodes"
+   },
+   "learn": "Enable pin + 2 direction pins per motor. PWM the enable pin for speed."
+  },
+  {
+   "id": "hc595",
+   "name": "Serial-to-parallel chip 74HC595",
+   "qty": 1,
+   "cat": "IC",
+   "sim": "planned",
+   "specs": {
+    "Type": "8-bit shift register with output latch, 16-pin DIP",
+    "VCC": "2-6 V",
+    "Output": "~6 mA comfortable per pin, 70 mA total",
+    "Pins": "DS (14) data, SHCP (11) clock, STCP (12) latch, OE (13) -> GND, MR (10) -> 5 V"
+   },
+   "learn": "shiftOut() 8 bits, pulse latch: 3 pins become 8 outputs. Chain more via Q7' (9)."
+  },
+  {
+   "id": "buzz_active",
+   "name": "Active buzzer",
+   "qty": 1,
+   "cat": "Output",
+   "sim": "planned",
+   "specs": {
+    "Drive": "DC on = beep (internal oscillator, ~2.3 kHz)",
+    "Voltage": "5 V, ~30 mA -> through NPN",
+    "Polarity": "long leg +, sticker side"
+   },
+   "learn": "Just HIGH/LOW. Has a sealed bottom.",
+   "img": "active_buzzer"
+  },
+  {
+   "id": "buzz_passive",
+   "name": "Passive buzzer",
+   "qty": 1,
+   "cat": "Output",
+   "sim": "full",
+   "specs": {
+    "Drive": "needs a square wave: tone(pin, freq)",
+    "Range": "usable ~200 Hz-5 kHz, loudest ~2-4 kHz"
+   },
+   "learn": "Can play melodies. Green PCB visible underneath.",
+   "img": "passive_buzzer"
+  },
+  {
+   "id": "dht11",
+   "name": "Temperature & humidity sensor DHT11",
+   "qty": 1,
+   "cat": "Sensor",
+   "sim": "planned",
+   "specs": {
+    "Range": "20-90 %RH (+/-5 %), 0-50 C (+/-2 C)",
+    "Rate": "1 reading/s max",
+    "Supply": "3.3-5.5 V",
+    "Pins": "1 VCC, 2 DATA (10 k pull-up), 3 NC, 4 GND",
+    "Library": "DHT (in kit)"
+   },
+   "learn": "Single-wire protocol, slow: read at most once per second."
+  },
+  {
+   "id": "thermistor",
+   "name": "NTC thermistor",
+   "qty": 1,
+   "cat": "Sensor",
+   "sim": "planned",
+   "specs": {
+    "Value": "10 k ohm @ 25 C (verify)",
+    "Beta": "~3950",
+    "Wiring": "divider with 10 k to analog pin"
+   },
+   "learn": "Resistance drops as it warms. Convert with the Beta equation."
+  },
+  {
+   "id": "ldr",
+   "name": "Photoresistor (LDR)",
+   "qty": 1,
+   "cat": "Sensor",
+   "sim": "planned",
+   "specs": {
+    "Value": "~10-20 k ohm in room light, ~1 M ohm dark (GL55xx type)",
+    "Wiring": "divider with 10 k to analog pin"
+   },
+   "learn": "Brighter = lower resistance."
+  },
+  {
+   "id": "relay",
+   "name": "Relay 5 V",
+   "qty": 1,
+   "cat": "Output",
+   "sim": "planned",
+   "specs": {
+    "Coil": "5 V DC, ~70-90 mA (verify part no.)",
+    "Contacts": "SPDT, rating printed on case",
+    "Drive": "NPN + 1N4007 flyback diode"
+   },
+   "learn": "Coil current is 4x what a pin may give. Keep mains out of breadboards."
+  },
+  {
+   "id": "dc_motor",
+   "name": "DC motor + fan blade",
+   "qty": 1,
+   "cat": "Actuator",
+   "sim": "planned",
+   "specs": {
+    "Voltage": "3-6 V",
+    "Current": "~100-300 mA, much more at stall"
+   },
+   "learn": "Drive via L293D or NPN + diode, never from a pin."
+  },
+  {
+   "id": "servo",
+   "name": "Servo SG90",
+   "qty": 1,
+   "cat": "Actuator",
+   "sim": "planned",
+   "specs": {
+    "Voltage": "4.8-6 V",
+    "Signal": "50 Hz PWM, ~0.5-2.5 ms pulse = 0-180 deg",
+    "Torque": "~1.8 kg-cm",
+    "Wires": "brown GND, red 5 V, orange signal",
+    "Library": "Servo (built in)"
+   },
+   "learn": "Draws current spikes; if the board resets, power it separately."
+  },
+  {
+   "id": "stepper",
+   "name": "Stepper motor 28BYJ-48 (5 V)",
+   "qty": 1,
+   "cat": "Actuator",
+   "sim": "planned",
+   "specs": {
+    "Type": "4-phase unipolar, 5 wire",
+    "Steps": "2048 full steps/rev (32 x ~64:1 gearbox), 4096 half steps",
+    "Speed": "~10-15 RPM max"
+   },
+   "learn": "Slow, precise, holds position."
+  },
+  {
+   "id": "uln2003",
+   "name": "Stepper driver board ULN2003",
+   "qty": 1,
+   "cat": "IC",
+   "sim": "planned",
+   "specs": {
+    "Chip": "ULN2003A Darlington array, 500 mA/channel",
+    "Inputs": "IN1-IN4 from Arduino",
+    "LEDs": "A-D show phase"
+   },
+   "learn": "Stepper plugs into the white socket."
+  },
+  {
+   "id": "joystick",
+   "name": "Joystick module",
+   "qty": 1,
+   "cat": "Input",
+   "sim": "planned",
+   "specs": {
+    "Axes": "2 x 10 k pots (VRx, VRy), ~512 centered",
+    "Button": "SW press-down to GND (use INPUT_PULLUP)",
+    "Pins": "GND, +5V, VRx, VRy, SW"
+   },
+   "learn": "Two pots and a button on one stick."
+  },
+  {
+   "id": "ir_remote",
+   "name": "Infrared remote",
+   "qty": 1,
+   "cat": "Input",
+   "sim": "planned",
+   "specs": {
+    "Protocol": "NEC, 38 kHz carrier",
+    "Battery": "CR2025 (pull the plastic tab)"
+   },
+   "learn": "Each key sends a 32-bit code."
+  },
+  {
+   "id": "ir_rx",
+   "name": "Infrared receiver",
+   "qty": 1,
+   "cat": "Sensor",
+   "sim": "planned",
+   "specs": {
+    "Type": "38 kHz demodulating receiver (VS1838B / HX1838 class)",
+    "Pins": "dome facing you: OUT, GND, VCC",
+    "Library": "IRremote (in kit)"
+   },
+   "learn": "Output idles HIGH, pulses LOW on IR."
+  },
+  {
+   "id": "hcsr04",
+   "name": "Ultrasonic ranging module HC-SR04",
+   "qty": 1,
+   "cat": "Sensor",
+   "sim": "planned",
+   "specs": {
+    "Range": "2-400 cm, ~3 mm resolution",
+    "Beam": "~15 deg",
+    "Supply": "5 V, 15 mA",
+    "Pins": "VCC, Trig, Echo, GND",
+    "Timing": "10 us Trig pulse; distance cm = echo us / 58",
+    "Library": "NewPing (in kit)"
+   },
+   "learn": "Soft or angled surfaces return no echo."
+  },
+  {
+   "id": "rc522",
+   "name": "RFID module RC522 + card + key fob",
+   "qty": 1,
+   "cat": "Sensor",
+   "sim": "planned",
+   "specs": {
+    "Frequency": "13.56 MHz, MIFARE Classic 1K tags",
+    "Supply": "3.3 V ONLY on VCC",
+    "Interface": "SPI: SDA(SS) D10, SCK D13, MOSI D11, MISO D12, RST D9",
+    "Range": "~3-5 cm",
+    "Library": "RFID (in kit)"
+   },
+   "learn": "Powering it from 5 V can kill it. Each tag has a unique UID."
+  },
+  {
+   "id": "jumper_mm",
+   "name": "Jumper wires male-male",
+   "qty": 65,
+   "cat": "Prototyping",
+   "sim": "rendered",
+   "specs": {
+    "Use": "breadboard to breadboard / board header"
+   },
+   "learn": "Color code: red +, black GND."
+  },
+  {
+   "id": "jumper_fm",
+   "name": "Jumper wires female-male (10-wire ribbon)",
+   "qty": 10,
+   "cat": "Prototyping",
+   "sim": "rendered",
+   "specs": {
+    "Use": "module header pins (LCD backpack, HC-SR04, RC522) to breadboard/board"
+   },
+   "learn": "Peel off as many as you need."
+  },
+  {
+   "id": "usb",
+   "name": "USB cable (USB-A to USB-C)",
+   "qty": 1,
+   "cat": "Power",
+   "sim": "none",
+   "specs": {
+    "Use": "upload + 5 V power + serial monitor"
+   },
+   "learn": "If no port shows up, try another cable: some are charge-only."
+  },
+  {
+   "id": "colorcard",
+   "name": "Resistor color code card",
+   "qty": 1,
+   "cat": "Reference",
+   "sim": "none",
+   "specs": {},
+   "learn": ""
+  }
+ ]
+}

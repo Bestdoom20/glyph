@@ -1,0 +1,1109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Freenove Kit Lab</title>
+<style>
+:root{--bg:#14161a;--panel:#1d2026;--line:#2c3038;--text:#d9dde3;--dim:#8a919c;--acc:#5aa2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,sans-serif}
+header{padding:10px 16px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+header h1{font-size:16px;margin:0}
+header span{color:var(--dim);font-size:12px}
+#scene{display:block;width:100%;max-height:62vh;background:radial-gradient(ellipse at 50% 40%,#3a3f47,#24272d)}
+main{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:12px;padding:12px 16px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:0 0 8px}
+textarea{width:100%;min-height:340px;background:#101215;color:#e6e6e6;border:1px solid var(--line);border-radius:6px;padding:8px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;tab-size:2;resize:vertical}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+button,select{background:#2a2f37;color:var(--text);border:1px solid #3a404a;border-radius:6px;padding:6px 10px;font:inherit;cursor:pointer}
+button.go{background:#1f5fbf;border-color:#2c74e0}
+button:hover{filter:brightness(1.15)}
+label{color:var(--dim);font-size:13px}
+input[type=range]{width:140px}
+#serial{height:120px;overflow:auto;background:#101215;border:1px solid var(--line);border-radius:6px;padding:6px;font:12px ui-monospace,monospace;white-space:pre-wrap}
+#serial .err{color:#ff6b6b}
+#status{font:12px ui-monospace,monospace;color:var(--dim)}
+#designer{display:grid;grid-template-columns:repeat(5,22px);gap:2px;margin:4px 0}
+#designer i{width:22px;height:22px;background:#203070;border-radius:2px;cursor:pointer}
+#designer i.on{background:#eef4ff}
+#ccode{font:12px ui-monospace,monospace;background:#101215;padding:6px;border-radius:6px;user-select:all;white-space:pre}
+#parts{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;padding:12px 16px}
+.card h3{margin:0 0 4px;font-size:14px}.card .meta{font-size:11px;color:var(--dim);margin-bottom:6px}
+.card dl{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin:0;font-size:12px}.card dt{color:var(--dim)}.card dd{margin:0}
+.card p{font-size:12px;color:#b8d4ff;margin:8px 0 0}.sim-full{color:#6fe39a}.sim-rendered{color:#e3c96f}
+nav button{padding:4px 10px}
+body.focus header>span,body.focus main{display:none}
+body.focus #scene{max-height:calc(100vh - 52px)}
+canvas:fullscreen{width:100vw!important;height:100vh!important;object-fit:contain;background:#000}
+#talkbar{padding:8px 16px;background:#181b20;border-bottom:1px solid var(--line)}
+#caption{font:20px/1.3 ui-monospace,Menlo,monospace;color:#cfe6ff;min-height:28px;white-space:pre-wrap}
+#caption i{display:inline-block;width:10px;height:20px;background:#5aa2ff;vertical-align:-3px;margin-left:2px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+#say{flex:1;min-width:200px;background:#101215;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit}
+body.focus #scene{max-height:calc(100vh - 150px)}
+#guide{padding:10px 16px;background:#1b1f27;border-bottom:1px solid var(--line)}
+#guide b{font-size:16px}#gList li::marker{color:#ffd54a;font-weight:700}#gPics{display:flex;gap:10px;margin-top:6px}#gPics figure{margin:0;text-align:center;font-size:12px;color:var(--dim)}#gPics img{width:110px;border-radius:6px;background:#fff}#guide ol{margin:6px 0 0;padding-left:22px;font-size:15px;line-height:1.6}
+#guide code{background:#2b3140;padding:1px 6px;border-radius:4px;color:#ffd1ea}
+#scene .dim{opacity:.12}#scene .dim2{opacity:.18}
+#scene .hl{animation:hl 1.1s ease-in-out infinite}@keyframes hl{50%{filter:drop-shadow(0 0 1.5px #ff2d95) drop-shadow(0 0 3px #ff2d95)}}
+#gList li{cursor:pointer;border-radius:6px;padding:1px 6px}#gList li.cur{background:#3a2a10;outline:1px solid #ffd54a}
+#scene .marks{display:none}#scene .marks.on{display:inline}
+</style>
+</head>
+<body>
+<header><h1>Freenove Kit Lab</h1><nav><button data-tab="bench" class="go">LCD bench</button> <button data-tab="parts">Parts bin</button> <button id="focus">Focus</button> <button id="lcdfs">LCD fullscreen</button> <button id="guideBtn">🔧 Build guide</button> <a href="face-builder/" target="_blank"><button>🎨 Face builder</button></a></nav><span>Freenove RFID Starter Kit V2.0 · Control Board V4 (ATmega328P) · 1602 + PCF8574 backpack · HD44780 A00 ROM</span></header>
+<div id="tab-bench">
+<svg id="scene" viewBox="0 0 250 118" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="guide" hidden>
+  <div class="row"><b id="gTitle"></b><span style="flex:1"></span><button id="gPrev">◀ Back</button><button id="gNext" class="go">Next ▶</button><button id="gAll">Show all</button> <select id="gLayout" title="breadboard layout"><option value="built">Layout: as built</option><option value="compact">Layout: compact (12 wires)</option></select></div>
+  <div id="gNote" style="color:#ffd54a;margin-top:6px"></div>
+  <ol id="gList"></ol>
+  <div id="gAfter" style="color:var(--dim);margin-top:4px"></div>
+  <div id="gPics"></div>
+</div>
+<div id="talkbar">
+  <div id="caption" title="live caption: what the sketch is typing out (Serial lines starting with '> ')"><span id="captext"></span><i></i></div>
+  <div class="row">
+    <select id="who" title="who is talking"><option value="glyph">Glyph says</option><option value="you">You say</option></select>
+    <select id="samples">
+      <option value="">sample lines…</option>
+      <option>Hello there! My name is Glyph.</option>
+      <option>Are you still awake? I think you should sleep.</option>
+      <option>I LOVE this tiny little screen!</option>
+      <option>Sorry... I am a little sad today.</option>
+      <option>Wait, WHAT? Whoa, that is so cool!</option>
+      <option>haha, that tickles. Do it again?</option>
+      <option>Hmm, let me think about that for a second.</option>
+      <option>Do not unplug me, I am still talking!</option>
+      <option>:happy</option><option>:evil</option><option>:sleep</option><option>:list</option>
+    </select>
+    <input id="say" placeholder="type a line (or :face), Enter to speak">
+    <button class="go" id="speak">Send ▶</button>
+    <select id="convo"><option value="">conversation tests…</option><option>cheer up</option><option>rude then sorry</option><option>curious chat</option><option>kawaii mode</option><option>robot mode</option><option>grumpy mode</option><option>brows mode</option></select>
+    <button id="play">Play ▶</button>
+    <button id="sound">🔊 Sound on</button>
+    <label title="off = clean synth, to compare with the reference video"><input type="checkbox" id="buzzfx" checked> buzzer sound</label>
+    <label title="how fast text arrives, like LLM tokens (0 = whole line at once)">tokens/s <input type="range" id="tps" min="0" max="100" value="0"></label><span id="tpsv" style="color:var(--dim);font-size:12px;min-width:90px">normal / whole line</span>
+  </div>
+</div>
+<main>
+<section>
+  <h2>Sketch (Arduino C++ · LiquidCrystal_I2C API)</h2>
+  <div class="row">
+    <button class="go" id="run">Upload ▶ (Ctrl+Enter)</button>
+    <button id="stop">Stop</button>
+    <button id="reset">Power cycle</button>
+    <select id="examples"></select>
+  </div>
+  <textarea id="code" spellcheck="false"></textarea>
+  <div id="status"></div>
+</section>
+<section>
+  <h2>Hardware</h2>
+  <div class="row"><label>I2C addr</label>
+    <select id="addr"><option value="39">0x27 (PCF8574T)</option><option value="63">0x3F (PCF8574AT)</option></select>
+    <label><input type="checkbox" id="bljumper" checked> backlight jumper</label></div>
+  <div class="row"><label>Contrast pot (V0)</label><input type="range" id="contrast" min="0" max="1" step="0.01" value="0.5"></div>
+  <div class="row"><label><input type="checkbox" id="response" checked> LCD pixel response (ghosting)</label></div>
+  <h2 style="margin-top:12px">Custom char designer (CGRAM 5×8)</h2>
+  <div class="row" style="align-items:flex-start;gap:14px">
+    <div id="designer"></div>
+    <div><div id="ccode"></div>
+      <div class="row"><button id="cclear">Clear</button><button id="cinvert">Invert</button><button id="cinsert">Insert into sketch</button></div></div>
+  </div>
+  <h2 style="margin-top:12px">Serial monitor</h2>
+  <div id="serial"></div>
+</section>
+</main>
+</div>
+<div id="tab-parts" hidden>
+  <div class="row" style="padding:0 16px"><input id="q" placeholder="filter parts..." style="background:#101215;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 10px;width:240px"><span id="kitnote" style="color:var(--dim);font-size:12px"></span></div>
+  <div id="parts"></div>
+</div>
+
+<script type="text/plain" id="ex-Freenove 16.1.1 hello/counter">/*
+  Sketch 16.1.1
+  Display the string on LCD1602
+
+  modified 2016/5/13
+  by http://www.freenove.com
+*/
+#include <LiquidCrystal_I2C.h>
+
+// initialize the library with the numbers of the interface pins
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+void setup() {
+  if (!i2CAddrTest(0x27)) {
+    lcd = LiquidCrystal_I2C(0x3F, 16, 2);
+  }
+  lcd.init();                // initialize the lcd
+  lcd.backlight();           // Turn on backlight
+  lcd.print("hello, world!");// Print a message to the LCD
+}
+
+void loop() {
+  // (note: line 1 is the second row, since counting begins with 0):
+  lcd.setCursor(0, 1);// set the cursor to column 0, line 1
+  // print the number of seconds since reset:
+  lcd.print("Counter:");
+  lcd.print(millis() / 1000);
+}
+
+bool i2CAddrTest(uint8_t addr) {
+  Wire.begin();
+  Wire.beginTransmission(addr);
+  if (Wire.endTransmission() == 0) {
+    return true;
+  }
+  return false;
+}</script>
+<script type="text/plain" id="ex-Custom chars + degree sign">#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+byte heart[8] = {B00000, B01010, B11111, B11111, B01110, B00100, B00000, B00000};
+byte smile[8] = {B00000, B01010, B01010, B00000, B10001, B01110, B00000, B00000};
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+  lcd.createChar(0, heart);
+  lcd.createChar(1, smile);
+  lcd.setCursor(0, 0);       // createChar leaves the address counter in CGRAM: must set cursor
+  lcd.print("I ");
+  lcd.write(0);
+  lcd.print(" Freenove ");
+  lcd.write(1);
+  lcd.setCursor(0, 1);
+  lcd.print("Temp: 23.5");
+  lcd.write(0xDF);           // degree sign in A00 ROM
+  lcd.print("C");
+}
+
+void loop() {}</script>
+<script type="text/plain" id="ex-Marquee scroll">#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+  lcd.print("ADLER // OMVION // SteamLab");
+  lcd.setCursor(0, 1);
+  lcd.print("scrollDisplayLeft");
+}
+
+void loop() {
+  lcd.scrollDisplayLeft();
+  delay(300);
+}</script>
+<script type="text/plain" id="ex-Progress bar">#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+void makeBars() {
+  for (int n = 0; n < 6; n++) {
+    byte b[8];
+    byte row = 0;
+    for (int i = 0; i < n; i++) row |= (B10000 >> i);
+    for (int r = 0; r < 8; r++) b[r] = row;
+    lcd.createChar(n, b);
+  }
+}
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+  makeBars();
+  lcd.setCursor(0, 0);
+  lcd.print("Uploading...");
+}
+
+int pct = 0;
+void loop() {
+  int cols = pct * 80 / 100;   // 16 chars * 5 px
+  lcd.setCursor(0, 1);
+  for (int c = 0; c < 16; c++) {
+    int fill = cols - c * 5;
+    lcd.write(byte(fill >= 5 ? 5 : (fill > 0 ? fill : 0)));
+  }
+  lcd.setCursor(13, 0);
+  if (pct < 10) lcd.print(" ");
+  if (pct < 100) lcd.print(" ");
+  lcd.print(pct);
+  pct = (pct + 1) % 101;
+  delay(60);
+}</script>
+<script type="text/plain" id="ex-Cursor + blink">#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+  lcd.print("cursor()");
+  lcd.setCursor(0, 1);
+  lcd.print("blink()");
+}
+
+void loop() {
+  lcd.setCursor(8, 0); lcd.cursor(); lcd.noBlink(); delay(2500);
+  lcd.setCursor(7, 1); lcd.noCursor(); lcd.blink(); delay(2500);
+}</script>
+
+<script>
+const A00 = [[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[4,4,4,4,0,0,4,0],[10,10,10,0,0,0,0,0],[10,10,31,10,31,10,10,0],[4,15,20,14,5,30,4,0],[24,25,2,4,8,19,3,0],[12,18,20,8,21,18,13,0],[12,4,8,0,0,0,0,0],[2,4,8,8,8,4,2,0],[8,4,2,2,2,4,8,0],[0,4,21,14,21,4,0,0],[0,4,4,31,4,4,0,0],[0,0,0,0,12,4,8,0],[0,0,0,31,0,0,0,0],[0,0,0,0,0,12,12,0],[0,1,2,4,8,16,0,0],[14,17,19,21,25,17,14,0],[4,12,4,4,4,4,14,0],[14,17,1,2,4,8,31,0],[31,2,4,2,1,17,14,0],[2,6,10,18,31,2,2,0],[31,16,30,1,1,17,14,0],[6,8,16,30,17,17,14,0],[31,1,2,4,8,8,8,0],[14,17,17,14,17,17,14,0],[14,17,17,15,1,2,12,0],[0,12,12,0,12,12,0,0],[0,12,12,0,12,4,8,0],[2,4,8,16,8,4,2,0],[0,0,31,0,31,0,0,0],[8,4,2,1,2,4,8,0],[14,17,1,2,4,0,4,0],[14,17,1,13,21,21,14,0],[14,17,17,31,17,17,17,0],[30,17,17,30,17,17,30,0],[14,17,16,16,16,17,14,0],[28,18,17,17,17,18,28,0],[31,16,16,30,16,16,31,0],[31,16,16,30,16,16,16,0],[14,17,16,23,17,17,15,0],[17,17,17,31,17,17,17,0],[14,4,4,4,4,4,14,0],[14,2,2,2,2,18,12,0],[17,18,20,24,20,18,17,0],[16,16,16,16,16,16,31,0],[17,27,21,21,17,17,17,0],[17,17,25,21,19,17,17,0],[14,17,17,17,17,17,14,0],[30,17,17,30,16,16,16,0],[14,17,17,17,21,18,13,0],[30,17,17,30,20,18,17,0],[15,16,16,14,1,1,30,0],[31,4,4,4,4,4,4,0],[17,17,17,17,17,17,14,0],[17,17,17,17,17,10,4,0],[17,17,17,21,21,21,10,0],[17,17,10,4,10,17,17,0],[17,17,17,10,4,4,4,0],[31,1,2,4,8,16,31,0],[14,8,8,8,8,8,14,0],[17,10,31,4,31,4,4,0],[14,2,2,2,2,2,14,0],[4,10,17,0,0,0,0,0],[0,0,0,0,0,0,31,0],[8,4,2,0,0,0,0,0],[0,0,14,1,15,17,15,0],[16,16,22,25,17,17,30,0],[0,0,14,16,16,17,14,0],[1,1,13,19,17,17,15,0],[0,0,14,17,31,16,14,0],[6,9,8,28,8,8,8,0],[0,15,17,17,15,1,14,0],[16,16,22,25,17,17,17,0],[4,0,12,4,4,4,14,0],[2,0,6,2,2,18,12,0],[16,16,18,20,24,20,18,0],[12,4,4,4,4,4,31,0],[0,0,26,21,21,17,17,0],[0,0,22,25,17,17,17,0],[0,0,14,17,17,17,14,0],[0,0,30,17,30,16,16,0],[0,0,13,19,15,1,1,0],[0,0,22,25,16,16,16,0],[0,0,14,16,14,1,30,0],[8,8,28,8,8,9,6,0],[0,0,17,17,17,19,13,0],[0,0,17,17,17,10,4,0],[0,0,17,17,21,21,10,0],[0,0,17,10,4,10,17,0],[0,0,17,17,15,1,14,0],[0,0,31,2,4,8,31,0],[2,4,4,8,4,4,2,0],[4,4,4,4,4,4,4,0],[8,4,4,2,4,4,8,0],[0,4,2,31,2,4,0,0],[0,4,8,31,8,4,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,28,20,28,0],[7,4,4,4,0,0,0,0],[0,0,0,4,4,4,28,0],[0,0,0,0,16,8,4,0],[0,0,0,12,12,0,0,0],[0,31,1,31,1,2,4,0],[0,0,31,1,6,4,8,0],[0,0,2,4,12,20,4,0],[0,0,4,31,17,1,14,0],[0,0,0,31,4,4,31,0],[0,0,2,31,6,10,18,0],[0,0,8,31,9,10,8,0],[0,0,0,14,2,2,31,0],[0,0,30,2,30,2,30,0],[0,0,0,21,21,1,6,0],[0,0,0,31,0,0,0,0],[31,1,5,6,4,4,8,0],[1,2,4,12,20,4,4,0],[4,31,17,17,1,2,4,0],[0,31,4,4,4,4,31,0],[2,31,2,6,10,18,2,0],[8,31,9,9,9,9,18,0],[4,31,4,31,4,4,4,0],[0,15,9,17,1,2,12,0],[8,15,18,2,2,2,4,0],[0,31,1,1,1,1,31,0],[10,31,10,10,2,4,8,0],[0,24,1,25,1,2,28,0],[0,31,1,2,4,10,17,0],[8,31,9,10,8,8,7,0],[0,17,17,9,1,2,12,0],[0,15,9,21,3,2,12,0],[2,28,4,31,4,4,8,0],[0,21,21,21,1,2,4,0],[14,0,31,4,4,4,8,0],[8,8,8,12,10,8,8,0],[4,4,31,4,4,8,16,0],[0,14,0,0,0,0,31,0],[0,31,1,10,4,10,16,0],[4,31,2,4,14,21,4,0],[2,2,2,2,2,4,8,0],[0,4,2,17,17,17,17,0],[16,16,31,16,16,16,15,0],[0,31,1,1,1,2,12,0],[0,8,20,2,1,1,0,0],[4,31,4,4,21,21,4,0],[0,31,1,1,10,4,2,0],[0,14,0,14,0,14,1,0],[0,4,8,16,17,31,1,0],[0,1,1,10,4,10,16,0],[0,31,8,31,8,8,7,0],[8,8,31,9,10,8,8,0],[0,14,2,2,2,2,31,0],[0,31,1,31,1,1,31,0],[14,0,31,1,1,2,4,0],[18,18,18,18,2,4,8,0],[0,4,20,20,21,21,22,0],[0,16,16,17,18,20,24,0],[0,31,17,17,17,17,31,0],[0,31,17,17,1,2,4,0],[0,24,0,1,1,2,28,0],[4,18,8,0,0,0,0,0],[28,20,28,0,0,0,0,0],[0,0,9,21,18,18,13,0],[10,0,14,1,15,17,15,0],[0,0,14,17,30,17,30,16],[0,0,14,16,12,17,14,0],[0,0,17,17,17,19,29,16],[0,0,15,20,18,17,14,0],[0,0,6,9,17,17,30,16],[0,0,15,17,17,17,15,1],[0,0,7,4,4,20,8,0],[0,2,26,2,0,0,0,0],[2,0,6,2,2,2,2,2],[0,20,8,20,0,0,0,0],[0,4,14,20,21,14,4,0],[8,8,28,8,28,8,15,0],[14,0,22,25,17,17,17,0],[10,0,14,17,17,17,14,0],[0,0,22,25,17,17,30,16],[0,0,13,19,17,17,15,1],[0,14,17,31,17,17,14,0],[0,0,0,11,21,26,0,0],[0,0,14,17,17,10,27,0],[10,0,17,17,17,19,13,0],[31,16,8,4,8,16,31,0],[0,0,31,10,10,10,19,0],[31,0,17,10,4,10,17,0],[0,0,17,17,17,17,15,1],[0,1,30,4,31,4,4,0],[0,0,31,8,15,9,17,0],[0,0,31,21,31,17,17,0],[0,0,4,0,31,0,4,0],[0,0,0,0,0,0,0,0],[31,31,31,31,31,31,31,31]];          // HD44780U A00 (Japanese) ROM, 5x8 rows; from char-lcd (MIT, jazz-soft)
+const $ = id => document.getElementById(id);
+
+// ---------- HD44780 core ----------
+const core = {};
+const pcf = { last: 0xff, hi: null };   // PCF8574 pins power up high
+function powerOn() {
+  pcf.last = 0xff; pcf.hi = null;
+  Object.assign(core, {
+    ddram: new Uint8Array(128).fill(0x20), cgram: new Uint8Array(64),
+    ac: 0, cg: false, id: 1, s: 0, D: 0, C: 0, B: 0, N: 0, shift: 0,
+    bl: true,   // PCF8574 pins power up HIGH, so the backlight is on before init
+    dl8: true,  // HD44780 wakes in 8-bit mode; the 0x3,0x3,0x3,0x2 nibble dance switches it to 4-bit
+  });
+}
+const nextAddr = (a, inc) => {           // 2-line DDRAM: 00-27, 40-67
+  a += inc ? 1 : -1;
+  if (inc) return a === 0x28 ? 0x40 : a === 0x68 ? 0x00 : a;
+  return a === 0x3f ? 0x27 : a === -1 ? 0x67 : a;
+};
+function command(v) {
+  v &= 255;
+  if (v & 0x80) { core.ac = v & 0x7f; core.cg = false; }
+  else if (v & 0x40) { core.ac = v & 0x3f; core.cg = true; }
+  else if (v & 0x20) { core.N = (v >> 3) & 1; core.dl8 = !!(v & 0x10); pcf.hi = null; }
+  else if (v & 0x10) {
+    const right = v & 4;
+    if (v & 8) core.shift += right ? -1 : 1;
+    else if (!core.cg) core.ac = nextAddr(core.ac, right);
+  }
+  else if (v & 0x08) { core.D = (v >> 2) & 1; core.C = (v >> 1) & 1; core.B = v & 1; }
+  else if (v & 0x04) { core.id = (v >> 1) & 1; core.s = v & 1; }
+  else if (v & 0x02) { core.ac = 0; core.cg = false; core.shift = 0; }
+  else if (v & 0x01) { core.ddram.fill(0x20); core.ac = 0; core.cg = false; core.id = 1; core.shift = 0; }
+}
+function data(v) {
+  v &= 255;
+  if (core.cg) { core.cgram[core.ac] = v & 0x1f; core.ac = (core.ac + (core.id ? 1 : 63)) & 63; return; }
+  core.ddram[core.ac] = v;
+  core.ac = nextAddr(core.ac, core.id);
+  if (core.s) core.shift += core.id ? 1 : -1;
+}
+const glyphRow = (code, y) => code < 16 ? core.cgram[((code & 7) << 3) + y] : A00[code][y];
+
+// ---------- PCF8574 I2C backpack + LiquidCrystal_I2C 1.1.2 API ----------
+const bus = { addr: 0x27, tx: 0, clock: 100000, debt: 0, busy: 0, winStart: performance.now(), load: 0 };
+// LiquidCrystal_I2C sends each LCD byte as 2 nibbles x 3 PCF8574 writes (~20 bit-times each) + 2 x 51 us enable pulses
+const busCost = extraMs => { const ms = 6 * (20000 / bus.clock + 0.02) + 0.102 + extraMs; bus.debt += ms; bus.busy += ms; };
+// Expander byte: P0 RS, P1 RW, P2 EN, P3 backlight, P4-P7 = HD44780 D4-D7. The LCD latches on EN falling.
+function pcfWrite(b) {
+  if (bus.tx !== bus.addr) return;
+  core.bl = !!(b & 8) && $('bljumper').checked;
+  if ((pcf.last & 4) && !(b & 4)) {
+    const nib = pcf.last & 0xf0, rs = pcf.last & 1;
+    if (core.dl8) rs ? data(nib) : command(nib);                 // 8-bit mode: one strobe = one instruction
+    else if (pcf.hi === null) pcf.hi = nib;
+    else { const v = pcf.hi | (nib >> 4); pcf.hi = null; rs ? data(v) : command(v); }
+  }
+  pcf.last = b;
+}
+const Wire = {
+  begin() {}, setClock(hz) { bus.clock = hz; }, beginTransmission(a) { bus.tx = a; bus.n = 0; },
+  write(b) { bus.n++; pcfWrite(b & 255); return 1; },
+  endTransmission() {             // start + address + n data bytes (9 bits each) + stop
+    if (bus.n !== undefined) { const ms = (9 * (bus.n + 1) + 2) * 1000 / bus.clock + 0.02; bus.debt += ms; bus.busy += ms; bus.n = undefined; }
+    return bus.tx === bus.addr ? 0 : 2;
+  },
+};
+let INT_MATH = true;
+function toText(v, base) {
+  if (typeof v === 'boolean') return v ? '1' : '0';
+  if (Array.isArray(v)) return cstr(v);
+  if (typeof v !== 'number') return String(v);
+  // ponytail: JS has no int type; sketches without float/double print numbers as ints. Mixed sketches: wrap ints in int().
+  if (!Number.isInteger(v) && !INT_MATH) return v.toFixed(base ?? 2);
+  v = Math.trunc(v);
+  return !base || base === 10 ? String(v) : (v < 0 ? v >>> 0 : v).toString(base).toUpperCase();
+}
+function LiquidCrystal_I2C(addr, cols = 16, rows = 2) {
+  let dc = 0x04, dm = 0x02, numlines = rows, backlight = false;
+  const live = () => addr === bus.addr;
+  const cmd = v => { busCost((v & 0xfc) ? 0 : 2); if (live()) command(v); };   // clear/home: library waits 2 ms
+  const wr = v => { busCost(0); if (live()) data(v); };
+  const bytes = s => { const out = []; for (const ch of String(s)) out.push(ch.charCodeAt(0) & 255); return out; };
+  const api = {
+    init() { api.begin(cols, rows); },
+    begin(c = cols, r = rows) {
+      numlines = r;
+      if (live()) core.bl = backlight && $('bljumper').checked;
+      cmd(r > 1 ? 0x28 : 0x20); dc = 0x04; cmd(0x08 | dc); cmd(0x01); dm = 0x02; cmd(0x04 | dm); cmd(0x02);
+    },
+    clear() { cmd(0x01); }, home() { cmd(0x02); },
+    setCursor(c, r) { const off = [0x00, 0x40, 0x14, 0x54]; if (r > numlines - 1) r = numlines - 1; cmd(0x80 | (c + off[r])); },
+    noDisplay() { dc &= ~4; cmd(0x08 | dc); }, display() { dc |= 4; cmd(0x08 | dc); },
+    noCursor() { dc &= ~2; cmd(0x08 | dc); }, cursor() { dc |= 2; cmd(0x08 | dc); },
+    noBlink() { dc &= ~1; cmd(0x08 | dc); }, blink() { dc |= 1; cmd(0x08 | dc); },
+    scrollDisplayLeft() { cmd(0x18); }, scrollDisplayRight() { cmd(0x1c); },
+    leftToRight() { dm |= 2; cmd(0x04 | dm); }, rightToLeft() { dm &= ~2; cmd(0x04 | dm); },
+    autoscroll() { dm |= 1; cmd(0x04 | dm); }, noAutoscroll() { dm &= ~1; cmd(0x04 | dm); },
+    createChar(loc, map) { loc &= 7; cmd(0x40 | (loc << 3)); for (let i = 0; i < 8; i++) wr(map[i] | 0); },
+    backlight() { backlight = true; if (live()) core.bl = $('bljumper').checked; },
+    noBacklight() { backlight = false; if (live()) core.bl = false; },
+    setBacklight(v) { v ? api.backlight() : api.noBacklight(); },
+    command(v) { cmd(v); },
+    write(v) { if (typeof v === 'string') { bytes(v).forEach(wr); return v.length; } wr(v); return 1; },
+    print(v, base) { const b = bytes(toText(v, base)); b.forEach(wr); return b.length; },
+    println(v = '', base) { return api.print(v, base) + api.print('\r\n'); },
+  };
+  api.load_custom_character = api.createChar;
+  return api;
+}
+
+// ---------- Arduino C++ -> JS (good enough for LCD sketches) ----------
+const T = '(?:(?:const|static|volatile|unsigned|signed|long|short)\\s+)*(?:void|bool|boolean|byte|char|short|int|long|float|double|word|String|size_t|unsigned|u?int(?:8|16|32|64)_t)\\b\\s*\\**';
+function stripComments(src) {     // drop // and /* */ comments, leaving string/char literals alone
+  let out = '', i = 0, q = null;
+  while (i < src.length) {
+    const c = src[i], d = src[i + 1];
+    if (q) { out += c; if (c === '\\') { out += d; i += 2; continue; } if (c === q) q = null; i++; continue; }
+    if (c === "'") {                // char literal -> its code, like C
+      const m = /^'(\\x[0-9a-fA-F]{1,2}|\\[0-7]{1,3}|\\.|[^'\\])'/.exec(src.slice(i));
+      if (m) {
+        const t = m[1], esc = { n: 10, r: 13, t: 9, '0': 0, '\\': 92, "'": 39, '"': 34, a: 7, b: 8, f: 12, v: 11 };
+        out += t[0] !== '\\' ? t.charCodeAt(0) : t[1] === 'x' ? parseInt(t.slice(2), 16) : /[0-7]/.test(t[1]) && t.length > 2 ? parseInt(t.slice(1), 8) : esc[t[1]];
+        i += m[0].length; continue;
+      }
+    }
+    if (c === '"') { q = c; out += c; i++; continue; }
+    if (c === '/' && d === '/') { while (i < src.length && src[i] !== '\n') i++; continue; }
+    if (c === '/' && d === '*') { const e = src.indexOf('*/', i + 2); const body = src.slice(i, e < 0 ? src.length : e + 2); out += body.replace(/[^\n]/g, ''); i += body.length; continue; }
+    out += c; i++;
+  }
+  return out;
+}
+function transpile(src) {
+  src = stripComments(src.replace(/\/\/ SIM-REPLACE-BEGIN[\s\S]*?\/\/ SIM-REPLACE-END/g, ''));   // AVR-only block: env supplies the same functions
+  INT_MATH = !/\b(float|double)\b/.test(src);
+  const fns = ['delay', 'delayMicroseconds', 'nap'];
+  src = src
+    .replace(/[^\x00-\x7f]/g, ch => [...new TextEncoder().encode(ch)].map(b => '\\x' + b.toString(16)).join(''))
+    .replace(/^\s*#include.*$/gm, '')
+    .replace(/^\s*#define\s+(\w+)\s+(.+)$/gm, 'const $1 = $2;')
+    .replace(/"[ \t]*\n\s*"/g, '')   // C joins adjacent string literals
+    .replace(/\bPROGMEM\b/g, '')
+    .replace(/\bpgm_read_(byte|word|dword)\s*\(\s*&/g, 'pgm_read_$1(')
+    .replace(/^\s*LiquidCrystal_I2C\s+(\w+)\s*\(([^)]*)\)\s*;/gm, 'let $1 = LiquidCrystal_I2C($2);')
+    .replace(new RegExp(`^\\s*${T}\\s*\\w+\\s*\\([^)]*\\)\\s*;`, 'gm'), '')
+    .replace(new RegExp(`${T}\\s*(\\w+)\\s*\\(([^)]*)\\)\\s*\\{`, 'g'), (m, name, params) => {
+      fns.push(name);
+      const p = params.trim() === 'void' ? '' : params.split(',').map(s => (s.match(/(\w+)\s*(\[\s*\])?\s*$/) || ['', ''])[1]).join(', ');
+      return `async function ${name}(${p}) {`;
+    })
+    .replace(new RegExp(`${T}\\s*(\\w+)\\s*(?:\\[[^\\]]*\\])+\\s*=\\s*\\{`, 'g'), 'let $1 = \u0001')
+    .replace(new RegExp(`${T}\\s*(\\w+)\\s*(?:\\[[^\\]]*\\])+\\s*=\\s*("(?:[^"\\\\]|\\\\.)*")`, 'g'), 'let $1 = __str($2)')   // char x[] = ".." -> zero-terminated bytes
+    .replace(new RegExp(`${T}\\s*(\\w+)\\s*((?:\\[[^\\]]+\\])+)\\s*;`, 'g'), (m, n, d) => `let ${n} = __arr(${d.slice(1, -1).split('][').join(',')});`)
+    .replace(new RegExp(`\\b${T}\\s*(?=[A-Za-z_]\\w*\\s*(?:=|;|,|\\)))`, 'g'), 'let ')
+    .replace(new RegExp(`\\(${T}\\)`, 'g'), '')
+    .replace(/\bB([01]{1,8})\b/g, '0b$1')
+    .replace(/\b(0x[0-9a-fA-F]+|\d+)(?:UL|LU|ul|lu|L|l|U|u)\b/g, '$1')   // C integer suffixes
+    .replace(/\.length\(\)/g, '.length').replace(/\.c_str\(\)/g, '').replace(/\bNULL\b/g, 'null');
+  // brace initialisers -> array literals
+  let out = '', depth = 0;
+  for (const ch of src) {
+    if (ch === '\u0001') { out += '['; depth = 1; continue; }
+    if (depth && ch === '{') { depth++; out += '['; continue; }
+    if (depth && ch === '}') { depth--; out += ']'; continue; }
+    out += ch;
+  }
+  const re = new RegExp(`(?<!function\\s+)(?<![\\w.])(${fns.join('|')})\\s*\\(`, 'g');
+  return out.replace(re, 'await $1(');
+}
+
+// ---------- runtime ----------
+let gen = 0, t0 = performance.now();
+const STOP = Symbol('stop');
+let serialQ = '';
+// the Uno's 1 KB EEPROM, kept in this browser so a stored custom face survives reloads like on the board
+const eep = (() => { try { const a = JSON.parse(localStorage.getItem('lab-eeprom')); if (Array.isArray(a) && a.length === 1024) return a; } catch {} return new Array(1024).fill(255); })();
+const EEPROM = { read: a => eep[a] ?? 255, write(a, v) { eep[a] = v & 255; try { localStorage.setItem('lab-eeprom', JSON.stringify(eep)); } catch {} }, update(a, v) { if (eep[a] !== (v & 255)) EEPROM.write(a, v); } };
+// Passive magnetic buzzer: square drive, small transducer resonant ~2.7 kHz, weak below ~400 Hz.
+// voiceStart/voiceStop mirror the sketch's Timer1 voice (envelope, legato, glide, breath, slide).
+const buzz = { ctx: null, osc: null, env: null, jit: null, breath: null, master: null, muted: false, until: 0, waves: null, buzzerPath: null, cleanPath: null };
+let simVox = null;               // the sketch's own VOX tables, picked up when it loads
+const sw = { sound: true, power: true, btnUp: true };   // slide switches + MODE push button on the breadboard
+function buzzInit() {
+  if (buzz.ctx) return;
+  const c = buzz.ctx = new AudioContext();
+  // a real magnetic buzzer is nearly deaf below ~800 Hz (two highpasses = -24 dB/oct) and loudest near 2.7 kHz
+  const hp = new BiquadFilterNode(c, { type: 'highpass', frequency: 800, Q: 0.7 });
+  const hp2 = new BiquadFilterNode(c, { type: 'highpass', frequency: 800, Q: 0.7 });
+  const res = new BiquadFilterNode(c, { type: 'peaking', frequency: 2700, Q: 1.4, gain: 12 });
+  const lp = new BiquadFilterNode(c, { type: 'lowpass', frequency: 6500 });
+  buzz.env = new GainNode(c, { gain: 0 });
+  buzz.breath = new GainNode(c, { gain: 0 });
+  buzz.master = new GainNode(c, { gain: 1 });
+  buzz.buzzerPath = new GainNode(c, { gain: $('buzzfx').checked ? 1 : 0 });
+  buzz.cleanPath = new GainNode(c, { gain: $('buzzfx').checked ? 0 : 1 });
+  buzz.osc = new OscillatorNode(c, { type: 'square', frequency: 130 });
+  const noise = c.createBuffer(1, c.sampleRate, c.sampleRate), d = noise.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = new AudioBufferSourceNode(c, { buffer: noise, loop: true });
+  buzz.jit = new GainNode(c, { gain: 0 });
+  const drift = new BiquadFilterNode(c, { type: 'lowpass', frequency: 30, Q: 0.5 });   // ~4 ms steps on the Uno: slow drift, not hiss
+  src.connect(drift).connect(buzz.jit).connect(buzz.osc.frequency);
+  src.connect(buzz.breath).connect(buzz.env);                  // breath noise, same envelope
+  buzz.osc.connect(buzz.env);
+  buzz.env.connect(buzz.buzzerPath).connect(hp).connect(hp2).connect(res).connect(lp).connect(buzz.master);
+  buzz.env.connect(buzz.cleanPath).connect(buzz.master);
+  buzz.master.connect(c.destination);
+  buzz.osc.start(); src.start();
+  buzzLevel();
+}
+function buzzLevel() { if (buzz.master) buzz.master.gain.value = sw.sound && sw.power && !buzz.muted ? 1 : 0; }
+function vowelWaves() {          // one period of each vowel -> PeriodicWave (same waveform the Uno plays)
+  if (buzz.waves || !simVox || !buzz.ctx) return buzz.waves;
+  buzz.waves = simVox.map(t => {
+    const N = t.length, re = new Float32Array(N / 2), im = new Float32Array(N / 2);
+    for (let k = 1; k < N / 2; k++) for (let n = 0; n < N; n++) { const a = 2 * Math.PI * k * n / N; re[k] += t[n] * Math.cos(a) / N; im[k] += t[n] * Math.sin(a) / N; }
+    return buzz.ctx.createPeriodicWave(re, im);
+  });
+  return buzz.waves;
+}
+function glow(ms) { if (buzzerEl) { buzzerEl.setAttribute('stroke', '#7ee0ff'); clearTimeout(glow.t); glow.t = setTimeout(() => buzzerEl.setAttribute('stroke', '#444'), ms); } }
+function voiceStart(f, ms, rise, v = 0) {
+  glow(ms);
+  if (!buzz.ctx) return;
+  const t = buzz.ctx.currentTime, sec = ms / 1000, P = 0.12, legato = buzz.until > t, fr = buzz.osc.frequency, e = buzz.env.gain;
+  const waves = vowelWaves(); if (waves) buzz.osc.setPeriodicWave(waves[v]);
+  fr.cancelScheduledValues(t);
+  if (legato) fr.setTargetAtTime(f, t, 0.013); else fr.setValueAtTime(f, t);
+  if (rise) fr.setTargetAtTime(f * 1.3, t + 0.02, sec / 1.5);
+  buzz.jit.gain.setValueAtTime(f * 0.4, t);                    // lowpassed noise ~0.035 rms -> ~1.5 % wobble
+  const b = buzz.breath.gain; b.cancelScheduledValues(t);       // breath ~ env^2: gone before the tone ends
+  b.setValueAtTime(legato ? 0.05 : 0, t); b.linearRampToValueAtTime(0.25, t + sec * 0.3);
+  b.setValueAtTime(0.25, t + sec * 0.6); b.linearRampToValueAtTime(0, t + sec * 0.85);
+  e.cancelScheduledValues(t);
+  e.setValueAtTime(legato ? P * 0.4 : 0, t);
+  e.linearRampToValueAtTime(P, t + sec * 0.3);
+  e.setValueAtTime(P, t + sec * 0.7);
+  e.linearRampToValueAtTime(0, t + sec);
+  buzz.until = t + sec;
+}
+function voiceStop() { if (buzz.ctx) { const t = buzz.ctx.currentTime; buzz.env.gain.cancelScheduledValues(t); buzz.env.gain.setTargetAtTime(0, t, 0.003); buzz.until = 0; } }
+function buzzSet(f) {          // plain tone()/noTone() for other sketches
+  if (f > 0) { glow(1e9); if (!buzz.ctx) return; const t = buzz.ctx.currentTime; buzz.osc.type = 'square'; buzz.breath.gain.setValueAtTime(0, t); buzz.osc.frequency.cancelScheduledValues(t); buzz.osc.frequency.setValueAtTime(f, t); buzz.jit.gain.setValueAtTime(0, t); buzz.env.gain.cancelScheduledValues(t); buzz.env.gain.setTargetAtTime(0.07, t, 0.002); buzz.until = 1e9; }
+  else { glow(0); voiceStop(); }
+}
+String.prototype.toInt = function () { return parseInt(this) || 0; };
+String.prototype.toFloat = function () { return parseFloat(this) || 0; };
+let serLine = '', spokenWaiters = [];
+const out = s => {
+  $('serial').append(s); $('serial').scrollTop = 1e9;
+  for (const ch of s) {
+    if (ch === '\n' && serLine.startsWith('> ')) { spokenWaiters.forEach(r => r()); spokenWaiters = []; }
+    serLine = ch === '\n' ? '' : serLine + ch; if (serLine.startsWith('> ')) $('captext').textContent = serLine.slice(2);
+  }
+};
+const __str = s => [...new TextEncoder().encode(s), 0];
+const cstr = a => Array.isArray(a) ? String.fromCharCode(...a.slice(0, a.indexOf(0) < 0 ? a.length : a.indexOf(0))) : a;
+const chr = c => typeof c === 'number' ? String.fromCharCode(c) : String(c);
+const __arr = (n, ...rest) => Array.from({ length: n }, () => rest.length ? __arr(...rest) : 0);
+const log = (s, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = s; $('serial').append(d); $('serial').scrollTop = 1e9; };
+const env = (g) => ({
+  LiquidCrystal_I2C, Wire,
+  millis: () => Math.floor(performance.now() - t0), micros: () => Math.floor((performance.now() - t0) * 1000),
+  delay: ms => { const w = ms + bus.debt; bus.debt = 0; return new Promise((res, rej) => setTimeout(() => g === gen ? res() : rej(STOP), w)); },
+  nap: ms => { const w = ms + bus.debt; bus.debt = 0; return new Promise((res, rej) => setTimeout(() => g === gen ? res() : rej(STOP), w)); },   // idle-sleep on the Uno = a wait here
+  delayMicroseconds: us => new Promise((res, rej) => setTimeout(() => g === gen ? res() : rej(STOP), us / 1000)),
+  random: (a, b) => b === undefined ? Math.floor(Math.random() * a) : a + Math.floor(Math.random() * (b - a)),
+  randomSeed() {}, map: (x, a, b, c, d) => Math.trunc((x - a) * (d - c) / (b - a) + c),
+  constrain: (x, a, b) => Math.min(Math.max(x, a), b), abs: Math.abs, min: Math.min, max: Math.max,
+  byte: v => v & 255, int: v => Math.trunc(Number(v)), F: s => s, sizeof: a => a.length,
+  HEX: 16, DEC: 10, BIN: 2, OCT: 8, HIGH: 1, LOW: 0, INPUT: 0, OUTPUT: 1, INPUT_PULLUP: 2,
+  A0: 14, A1: 15, A2: 16, A3: 17, A4: 18, A5: 19, LED_BUILTIN: 13,
+  voiceStart, voiceStop, PSTR: s => s, strlen: s => cstr(s).length, strlen_P: s => cstr(s).length, __str,
+  memcpy: (d, s, n) => { for (let i = 0; i < n; i++) d[i] = s[i]; }, memcmp: (a, b, n) => { for (let i = 0; i < n; i++) if (a[i] !== b[i]) return 1; return 0; },
+  memset: function fill(a, v) { for (let i = 0; i < a.length; i++) Array.isArray(a[i]) ? fill(a[i], v) : a[i] = v; },
+  tone: (pin, f, dur) => { buzzSet(f); if (dur) setTimeout(() => buzzSet(0), dur); }, noTone: () => buzzSet(0),
+  EEPROM, isxdigit: c => /^[0-9a-f]$/i.test(chr(c)),
+  isupper: c => /^[A-Z]$/.test(chr(c)), islower: c => /^[a-z]$/.test(chr(c)),
+  pinMode() {}, digitalWrite() {}, digitalRead: pin => pin === 3 ? +sw.power : pin === 2 ? +sw.btnUp : 0, sleepUntilOn() {}, analogWrite() {}, analogRead: () => Math.floor(Math.random() * 1024),
+  twiInit() {}, twiStart: a => { Wire.beginTransmission(a); return a === bus.addr; }, twiWrite: b => Wire.write(b), twiStop: () => Wire.endTransmission(),
+  ioInit() {}, pinHigh: bit => bit === 3 ? sw.power : bit === 2 ? sw.btnUp : true,
+  Serial: { begin() {}, print: (v, b) => out(toText(v, b)), println: (v = '', b) => out(toText(v, b) + '\n'), write: v => out(typeof v === 'number' ? String.fromCharCode(v) : v),
+    available: () => serialQ.length, read() { if (!serialQ) return -1; const c = serialQ.charCodeAt(0); serialQ = serialQ.slice(1); return c; },
+    readStringUntil(t) { const i = serialQ.indexOf(t); const s = i < 0 ? serialQ : serialQ.slice(0, i); serialQ = i < 0 ? '' : serialQ.slice(i + 1); return s; },
+    readString() { const s = serialQ; serialQ = ''; return s; } },
+  pgm_read_byte: v => typeof v === 'string' ? v.charCodeAt(0) : v === undefined ? 0 : v, pgm_read_word: v => v, pgm_read_dword: v => v, __arr,
+  tolower: c => typeof c === 'number' ? chr(c).toLowerCase().charCodeAt(0) : chr(c).toLowerCase(), toupper: c => typeof c === 'number' ? chr(c).toUpperCase().charCodeAt(0) : chr(c).toUpperCase(),
+  isalpha: c => /^[a-z]$/i.test(chr(c)), isdigit: c => /^[0-9]$/.test(chr(c)), isspace: c => /^\s$/.test(chr(c)),
+});
+async function run() {
+  stop(); powerOn(); t0 = performance.now(); $('serial').textContent = ''; serialQ = ''; bus.debt = 0; bus.clock = 100000;
+  const g = gen;
+  try {
+    const e = env(g);
+    const js = transpile($('code').value);
+    const prog = new Function(...Object.keys(e), js + '\nreturn {setup: typeof setup==="function"?setup:null, loop: typeof loop==="function"?loop:null, VOX: typeof VOXH!=="undefined" ? [...VOXH, ...VOXB] : typeof VOX!=="undefined" ? VOX : null};')(...Object.values(e));
+    simVox = prog.VOX; buzz.waves = null;
+    if (prog.setup) await prog.setup();
+    while (prog.loop && g === gen) { await prog.loop(); await e.delay(0); }
+  } catch (err) { if (err !== STOP) log(String(err), 'err'); }
+}
+function stop() { gen++; buzzSet(0); $('captext').textContent = ''; }
+
+// ---------- render: LCD glass ----------
+const K = 16;                                      // px per mm on the glass canvas
+const glass = document.createElement('canvas');
+glass.width = 64.5 * K; glass.height = 16 * K;
+const g2 = glass.getContext('2d');
+const level = new Float32Array(2 * 16 * 40);       // per-pixel optical state, 0..1
+const clamp = x => Math.max(0, Math.min(1, x));
+const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+let last = performance.now(), buzzerEl = null;
+function frame(now) {
+  const dt = now - last; last = now;
+  const c = +$('contrast').value;
+  const L = clamp((c - 0.12) / 0.33);              // lit-pixel visibility vs V0
+  const U = 0.04 + clamp((c - 0.62) * 2.4);        // unlit-cell "boxes" when V0 is cranked
+  const on = core.bl;
+  const bg = on ? [32, 58, 238] : [8, 12, 40], lit = on ? [236, 243, 255] : [40, 52, 110];
+  const blinkOn = (now % 758) < 379;               // 409.6 ms @ 250 kHz osc -> ~379 ms @ 270 kHz
+  const resp = $('response').checked;
+  const kOn = resp ? 1 - Math.exp(-dt / 50) : 1, kOff = resp ? 1 - Math.exp(-dt / 90) : 1;
+  const grad = g2.createRadialGradient(glass.width / 2, glass.height / 2, 10, glass.width / 2, glass.height / 2, glass.width / 1.6);
+  grad.addColorStop(0, `rgb(${mix(bg, [255, 255, 255], on ? .1 : 0)})`); grad.addColorStop(1, `rgb(${bg})`);
+  g2.fillStyle = grad; g2.fillRect(0, 0, glass.width, glass.height);
+  const curRow = core.ac >= 0x40 ? 1 : 0, curCol = ((core.ac & 0x3f) - core.shift % 40 + 40) % 40;
+  let i = 0;
+  for (let r = 0; r < 2; r++) for (let col = 0; col < 16; col++) {
+    const addr = r * 0x40 + ((col + core.shift) % 40 + 40) % 40;
+    const code = core.ddram[addr];
+    const isCur = !core.cg && r === curRow && col === curCol;
+    for (let y = 0; y < 8; y++) {
+      let bits = core.D ? glyphRow(code, y) : 0;
+      if (core.D && isCur && core.C && y === 7) bits = 31;
+      if (core.D && isCur && core.B && blinkOn) bits = 31;
+      for (let x = 0; x < 5; x++, i++) {
+        let tgt = (bits >> (4 - x)) & 1;
+        if (!core.N) tgt = r === 0 ? 0.8 : 0;      // 1-line mode (uninitialised): classic top-row boxes
+        level[i] += (tgt - level[i]) * (tgt > level[i] ? kOn : kOff);
+        const v = Math.max(U, level[i] * L);
+        g2.fillStyle = `rgb(${mix(mix(bg, [12, 22, 140], on ? .35 : .2), lit, v)})`;
+        g2.fillRect((4.15 + col * 3.55 + x * 0.6) * K, (2.25 + r * 5.95 + y * 0.7) * K, 0.55 * K, 0.65 * K);
+      }
+    }
+  }
+  const sheen = g2.createLinearGradient(0, 0, glass.width * .4, glass.height);
+  sheen.addColorStop(0, 'rgba(255,255,255,.07)'); sheen.addColorStop(1, 'rgba(255,255,255,0)');
+  g2.fillStyle = sheen; g2.fillRect(0, 0, glass.width, glass.height);
+  $('status').textContent = `AC=0x${core.ac.toString(16).padStart(2, '0')}${core.cg ? ' (CGRAM)' : ''}  D=${core.D} C=${core.C} B=${core.B}  N=${core.N}  I/D=${core.id} S=${core.s}  shift=${core.shift}  BL=${+core.bl}  bus=0x${bus.addr.toString(16)} @${bus.clock / 1000}kHz  I2C busy ${bus.load}%`;
+  if (now - bus.winStart > 1000) { bus.load = Math.min(100, Math.round(bus.busy / (now - bus.winStart) * 100)); bus.busy = 0; bus.winStart = now; }
+  requestAnimationFrame(frame);
+}
+
+// ---------- render: bench scene (mm units) ----------
+const svg = $('scene'), NS = 'http://www.w3.org/2000/svg';
+let buildStep = 0, buildSub = 0, geo = null;   // which build-guide step the next drawn part belongs to (0 = always shown)
+function el(tag, attrs, parent = svg) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent === svg && buildStep) e.setAttribute('data-step', buildStep); if (buildSub) e.setAttribute('data-sub', buildSub); parent.append(e); return e; }
+function text(x, y, s, size = 1.6, fill = '#ddd', anchor = 'middle', parent = svg) { const t = el('text', { x, y, 'font-size': size, fill, 'text-anchor': anchor, 'font-family': 'Arial,sans-serif' }, parent); t.textContent = s; return t; }
+function hole(x, y, parent) { el('rect', { x: x - .5, y: y - .5, width: 1, height: 1, rx: .15, fill: '#3b3b3b' }, parent); }
+const markGroups = {};
+function markGroup(n) {          // label layers belong to no wire: never tagged, never dimmed
+  if (markGroups[n]) return markGroups[n];
+  const st = buildStep, sb = buildSub; buildStep = buildSub = 0;
+  markGroups[n] = el('g', { class: 'marks', 'data-marks': n }, svg);
+  buildStep = st; buildSub = sb;
+  return markGroups[n];
+}
+function tag(x, y, label, color, above = true) {   // name tag on a wire end, shown with that build step ("text|dx|dy" nudges it)
+  const [t, dx = 0, dy = 0] = label.split('|'); label = t; x += +dx; y += +dy;
+  const g = markGroup(buildStep), w = label.length * 1.05 + 2, ty = above ? y - 5.2 : y + 2.4;
+  el('rect', { x: x - w / 2, y: ty, width: w, height: 2.8, rx: .6, fill: color, stroke: '#fff', 'stroke-width': .25 }, g);
+  text(x, ty + 2.05, label, 1.7, '#fff', 'middle', g);
+}
+function badge(n, x, y) {         // numbered step marker: matches the instruction with the same number
+  const g = markGroup(buildStep), sub0 = buildSub; buildSub = n;
+  el('circle', { cx: x, cy: y, r: 2.1, fill: '#ffd54a', stroke: '#111', 'stroke-width': .35 }, g);
+  text(x, y + .75, String(n), 2.2, '#111', 'middle', g);
+  buildSub = sub0;
+}
+// route: number = classic sag; 'up' = arc above both ends (board header -> breadboard); 'down' = arc below
+function wire(x1, y1, x2, y2, color, sag = 12, tagA = '', tagB = '', n = 0) {
+  const sub0 = buildSub; if (n) buildSub = n;
+  let c1 = [x1, y1 + sag], c2 = [x2, y2 - sag];
+  if (sag === 'up') { const t = Math.min(y1, y2) - 9; c1 = [x1, t]; c2 = [x2, t]; }
+  if (sag === 'down') { const t = Math.max(y1, y2) + 6; c1 = [x1, t]; c2 = [x2, t]; }
+  if (sag === 'lcd') { c1 = [x1 - 10, y1]; c2 = [x2, y2 - 14]; }   // out of the backpack header, then down
+  const d = `M${x1},${y1} C${c1} ${c2} ${x2},${y2}`;
+  el('path', { d, stroke: 'rgba(0,0,0,.35)', 'stroke-width': 1.5, fill: 'none', transform: 'translate(.6,.9)' });
+  el('path', { d, stroke: 'rgba(255,255,255,.55)', 'stroke-width': 1.7, fill: 'none', 'stroke-linecap': 'round' });   // outline: readable on any background
+  el('path', { d, stroke: color, 'stroke-width': 1.2, fill: 'none', 'stroke-linecap': 'round' });
+  for (const [x, y] of [[x1, y1], [x2, y2]]) el('rect', { x: x - .6, y: y - .6, width: 1.2, height: 1.2, fill: '#222' });
+  if (tagA) tag(x1, y1, tagA, color, sag !== 'down');
+  if (tagB) tag(x2, y2, tagB, color, sag !== 'down');
+  if (n) badge(n, .125 * x1 + .375 * c1[0] + .375 * c2[0] + .125 * x2, .125 * y1 + .375 * c1[1] + .375 * c2[1] + .125 * y2);   // curve midpoint
+  buildSub = sub0;
+}
+function slide(id, x, y, label, get, set, onLeft) {   // SPDT slide switch, click to flip
+  const g = el('g', { style: 'cursor:pointer' });
+  el('rect', { x: x - 4.4, y: y - 1.6, width: 8.8, height: 3.2, rx: .4, fill: '#2b2b2b', stroke: '#555', 'stroke-width': .2 }, g);
+  const k = el('rect', { y: y - 1.1, width: 3, height: 2.2, rx: .3, fill: '#ddd' }, g);
+  const t = text(x, y - 2.4, '', 1.3, '#333', 'middle', g);
+  const draw = () => { const on = get(); k.setAttribute('x', (on === onLeft ? x - 3.9 : x + .9)); t.textContent = `${label} ${on ? 'ON' : 'OFF'}`; t.setAttribute('fill', on ? '#1a7a3a' : '#a33'); };
+  g.onclick = () => { set(!get()); draw(); };
+  draw();
+}
+function drawScene() {
+  el('defs', {}).innerHTML = `<linearGradient id="pcb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a8a44"/><stop offset="1" stop-color="#1c6b33"/></linearGradient>`;
+  // breadboard, 830 tie-points, 165.1 x 54.6
+  const bx = 80, by = 58, colX = i => bx + 3.8 + i * 2.54;
+  const bb = el('g', {});
+  el('rect', { x: bx, y: by, width: 165.1, height: 54.6, rx: 1.5, fill: '#efeee8', stroke: '#c9c7bd', 'stroke-width': .3 }, bb);
+  el('rect', { x: bx, y: by + 26.2, width: 165.1, height: 2.2, fill: '#dcdad1' }, bb);
+  const rows = [], a = by + 13.33;
+  for (let k = 0; k < 12; k++) if (k !== 5 && k !== 6) rows.push(a + k * 2.54);
+  'jihgfedcba'.split('').forEach((ch, k) =>   // kit board: a is the bottom row
+   { text(bx + 1.8, rows[k] + .55, ch, 1.4, '#888', 'middle', bb); });
+  for (let i = 0; i < 63; i++) {
+    for (const y of rows) hole(colX(i), y, bb);
+    if ((i + 1) % 5 === 0 || i === 0) { text(colX(i), a - 2.2, i + 1, 1.3, '#888', 'middle', bb); text(colX(i), rows[9] + 3.2, i + 1, 1.3, '#888', 'middle', bb); }
+  }
+  const rails = { tp: by + 3.5, tn: by + 6.04, bp: by + 54.6 - 6.04, bn: by + 54.6 - 3.5 };   // top to bottom: + - (terminals) + -, same as the kit board
+  for (const [k, y] of Object.entries(rails)) {
+    const pos = k[1] === 'p';
+    el('line', { x1: bx + 3, x2: bx + 162, y1: y + (pos ? -1.6 : 1.6), y2: y + (pos ? -1.6 : 1.6), stroke: pos ? '#d33' : '#36c', 'stroke-width': .35 }, bb);
+    for (let i = 1; i < 62; i++) if (i % 6 !== 5) hole(colX(i), y, bb);
+  }
+  // Freenove Control Board V4 (UNO R3 footprint 68.6 x 53.3, black, USB-C)
+  const ox = 4, oy = 59.6;
+  el('rect', { x: ox, y: oy, width: 68.6, height: 53.3, rx: 2, fill: '#15171a', stroke: '#333', 'stroke-width': .3 });
+  for (const [hx, hy] of [[14, 2.5], [15.3, 50.8], [66.1, 7.6], [66.1, 35.5]]) el('circle', { cx: ox + hx, cy: oy + hy, r: 1.6, fill: '#3a3f47', stroke: '#c9a646', 'stroke-width': .5 });
+  el('rect', { x: ox - 1.5, y: oy + 6, width: 8, height: 9, rx: 1.5, fill: '#b9bcc2', stroke: '#888', 'stroke-width': .3 });
+  text(ox + 2.5, oy + 17.5, 'USB-C', 1.3, '#999');
+  el('rect', { x: ox - 1.8, y: oy + 40, width: 13, height: 9, rx: .8, fill: '#0a0a0a' });
+  el('rect', { x: ox + 38, y: oy + 24, width: 7, height: 7, fill: '#222', stroke: '#555', 'stroke-width': .3, transform: `rotate(45 ${ox + 41.5} ${oy + 27.5})` });
+  text(ox + 41.5, oy + 35, 'ATmega328P', 1.4, '#888');
+  el('rect', { x: ox + 15, y: oy + 13, width: 6, height: 4, fill: '#222', stroke: '#444', 'stroke-width': .3 }); text(ox + 18, oy + 19.5, 'CH340C', 1.2, '#888');
+  el('rect', { x: ox + 3, y: oy + 1.5, width: 6, height: 4, rx: .5, fill: '#ccc' }); el('circle', { cx: ox + 6, cy: oy + 3.5, r: 1.2, fill: '#d33' });
+  text(ox + 40, oy + 22, 'FREENOVE', 2.6, '#eee'); text(ox + 40, oy + 46, 'Control Board V4', 1.6, '#aaa');
+  const USED = ['SCL', 'SDA', '2', '~3', '~9', '5V'];
+  const pin = (x, y, lbl, below) => { const u = USED.includes(lbl) || (lbl === 'GND' && !below && !pin.g++); el('rect', { x: x - 1.27, y: y - 1.27, width: 2.54, height: 2.54, fill: u ? '#3a3200' : '#111', stroke: u ? '#ffd54a' : '#2a2a2a', 'stroke-width': u ? .35 : .2 }); hole(x, y); text(x, below ? y + 3.4 : y - 2.1, lbl.replace('~', ''), u ? 1.2 : .95, u ? '#ffd54a' : '#ccc'); };
+  pin.g = 0;
+  const top = ['SCL', 'SDA', 'AREF', 'GND', '13', '12', '~11', '~10', '~9', '8'], top2 = ['7', '~6', '~5', '4', '~3', '2', 'TX1', 'RX0'];
+  const P = {};
+  top.forEach((l, i) => pin(P[l] = ox + 18 + i * 2.54, oy + 2.54, l, true));
+  top2.forEach((l, i) => pin(P[l] = ox + 44.9 + i * 2.54, oy + 2.54, l, true));
+  ['NC', 'IOREF', 'RST', '3V3', '5V', 'GND', 'GND', 'VIN'].forEach((l, i) => pin(P['b' + l] = ox + 27.9 + i * 2.54, oy + 50.76, l));
+  ['A0', 'A1', 'A2', 'A3', 'A4', 'A5'].forEach((l, i) => pin(ox + 50.8 + i * 2.54, oy + 50.76, l));
+  // LCD1602 module 80 x 36 with PCF8574 backpack header on the left
+  const lx = 123, ly = 6;
+  el('rect', { x: lx - 4, y: ly + 8, width: 6, height: 20, rx: .6, fill: '#1b1d22' });
+  const hdr = ['GND', 'VCC', 'SDA', 'SCL'], hp = hdr.map((_, i) => [lx - 5.5, ly + 14.19 + i * 2.54]);
+  const hc = ['#222', '#d22', '#2b6fe0', '#f2c230'];
+  hp.forEach(([x, y], i) => { el('rect', { x, y: y - .32, width: 6, height: .64, fill: '#d8c070' }); el('rect', { x: x + 8.6, y: y - 1.05, width: 6, height: 2.1, rx: .4, fill: hc[i] }); text(x + 11.6, y + .55, hdr[i], 1.5, '#fff', 'middle'); });
+  el('rect', { x: lx, y: ly, width: 80, height: 36, rx: 1, fill: 'url(#pcb)', stroke: '#145226', 'stroke-width': .3 });
+  for (const [hx, hy] of [[2.5, 2.5], [77.5, 2.5], [2.5, 33.5], [77.5, 33.5]]) el('circle', { cx: lx + hx, cy: ly + hy, r: 1.25, fill: '#2e3238', stroke: '#c9c9c9', 'stroke-width': .5 });
+  for (let i = 0; i < 16; i++) el('circle', { cx: lx + 8 + i * 2.54, cy: ly + 2.5, r: .75, fill: '#cfcfcf' });
+  text(lx + 8, ly + 5.2, '1', 1.1, '#cfe'); text(lx + 8 + 15 * 2.54, ly + 5.2, '16', 1.1, '#cfe');
+  el('rect', { x: lx + 4.4, y: ly + 5.9, width: 71.2, height: 24.2, rx: .4, fill: '#0d0f12' });
+  el('foreignObject', { x: lx + 7.75, y: ly + 10, width: 64.5, height: 16 }).append(glass); glass.style.cssText = 'width:100%;height:100%;display:block';
+  text(lx + 74, ly + 34, 'LCD1602 IIC', 1.2, '#bfe3c8', 'end');
+  // wiring: LCD -> breadboard -> board
+  geo = { colX, rows, rails };
+  if (LAYOUT === 'compact') {      // compact layout: parts share columns instead of jumpers, bottom rails only, cols 1-17
+    const C = n => colX(n - 1), R = l => rows['jihgfedcba'.indexOf(l)];
+    const legs = (xs, y) => xs.forEach(x => el('circle', { cx: x, cy: y, r: .7, fill: '#cfcfcf', stroke: '#777', 'stroke-width': .2 }));
+    // 1 power: board 5V / GND -> bottom rails only
+    buildStep = 1;
+    wire(P.b5V, oy + 50.76, C(1), rails.bp, '#d22', 'down', '5V', '+ rail', 1);
+    wire(P.bGND, oy + 50.76, C(2), rails.bn, '#222', 'down', 'GND', '− rail', 2);
+    // 2 LCD: power from the bottom rails, SDA / SCL straight into the board's pins
+    buildStep = 2;
+    const [gnd, vcc, sda, scl] = hp;
+    wire(gnd[0], gnd[1], C(3), rails.bn, '#222', 30, '', 'LCD GND|-6|3', 1);
+    wire(vcc[0], vcc[1], C(4), rails.bp, '#d22', 30, '', 'LCD VCC|6|3', 2);
+    wire(sda[0], sda[1], P.SDA, oy + 2.54, '#2b6fe0', 8, '', 'SDA pin|5|0', 3);
+    wire(scl[0], scl[1], P.SCL, oy + 2.54, '#f2c230', 10, '', 'SCL pin|-5|-3.4', 4);
+    // 3 voice: transistor e12-e14, buzzer - leg shares column 14 with C, resistor d9-d13
+    buildStep = 3;
+    buildSub = 1;
+    const tw = C(14.5) - C(11.5), ty = R('e');
+    el('path', { d: `M${C(11.5)},${ty - .6} h${tw} v.4 a${tw / 2} ${tw / 2.2} 0 0 1 -${tw} 0 z`, fill: '#1a1a1a', stroke: '#555', 'stroke-width': .2 });
+    el('rect', { x: C(11.5), y: ty - 1.8, width: tw, height: 1.6, fill: '#2a2a2a', stroke: '#888', 'stroke-width': .2 });
+    text(C(13), ty - .65, '8050', 1.15, '#ddd');
+    text(C(12), ty - 2.6, 'E', 1.5, '#111'); text(C(13), ty - 2.6, 'B', 1.5, '#111'); text(C(14), ty - 2.6, 'C', 1.5, '#111');
+    legs([C(12), C(13), C(14)], ty);
+    buildSub = 2;
+    const bx0 = (C(14) + C(16)) / 2, by0 = R('a') - 1.6;
+    el('circle', { cx: bx0, cy: by0, r: 6, fill: '#151515' });
+    buzzerEl = el('circle', { cx: bx0, cy: by0, r: 5.4, fill: 'none', stroke: '#444', 'stroke-width': .6 });
+    el('circle', { cx: bx0, cy: by0, r: 1, fill: '#333' });
+    for (const [c, lbl] of [[16, '+'], [14, '−']]) { el('circle', { cx: C(c), cy: R('a'), r: .9, fill: '#d9d9d9', stroke: '#777', 'stroke-width': .25 }); text(C(c), R('a') + .55, lbl, 1.5, lbl === '+' ? '#d22' : '#333'); }
+    buildSub = 3;
+    el('rect', { x: C(9) - .4, y: R('d') - .45, width: C(13) - C(9) + .8, height: .9, fill: '#bbb' });
+    el('rect', { x: C(10.2), y: R('d') - 1.1, width: 4.6, height: 2.2, rx: 1, fill: '#4f7fd6' });
+    [['#7a4a1e', 0], ['#111', 1], ['#111', 1.9], ['#7a4a1e', 2.8], ['#7a4a1e', 3.8]].forEach(([c, dx]) => el('rect', { x: C(10.2) + .3 + dx, y: R('d') - 1.1, width: .45, height: 2.2, fill: c }));
+    buildSub = 0;
+    badge(1, C(10.4), R('e') - 3.4); badge(2, bx0 + 7.6, by0 - 2.4); badge(3, C(11), R('d') + 2.6);
+    wire(C(9), R('a'), P['~9'], oy + 2.54, '#e07a1f', 'up', '→ D9|-6|1', 'D9', 4);
+    wire(C(12), R('d'), C(12), rails.bn, '#222', 0, '', '− rail|-6|0', 5);
+    // 4 SOUND switch d15-d17: middle shares column 16 with the buzzer +, side d17 -> + rail
+    buildStep = 4;
+    buildSub = 1; slide('sound', C(16), R('d') - .2, 'SOUND', () => sw.sound, v => { sw.sound = v; buzzLevel(); }, false); buildSub = 0;
+    badge(1, C(19.2), R('d'));
+    wire(C(17), R('e'), C(17), rails.bp, '#d22', 0, '', '+ rail|6|0', 2);
+    // 5 POWER switch b5-b7: side b5 shares column 5 with the shared ground wire a5, middle b6 -> D3
+    buildStep = 5;
+    buildSub = 1; slide('power', C(6), R('b'), 'POWER', () => sw.power, v => { sw.power = v; }, true); buildSub = 0;
+    badge(1, C(8.8), R('b'));
+    wire(C(5), R('a'), C(5), rails.bn, '#222', 0, '', '− rail|-6|0', 2);
+    wire(C(6), R('a'), P['~3'], oy + 2.54, '#8a4fd6', 'up', '→ D3|6|1', 'D3', 3);
+    // 6 MODE button across the gap at columns 3 / 5: bottom leg e5 is already grounded by a5
+    buildStep = 6;
+    buildSub = 1;
+    const bgc = el('g', { style: 'cursor:pointer' });
+    el('rect', { x: C(3) - 1.2, y: R('f') - 1.2, width: C(5) - C(3) + 2.4, height: R('e') - R('f') + 2.4, rx: .5, fill: '#2a2a2a' }, bgc);
+    const capc = el('circle', { cx: C(4), cy: (R('f') + R('e')) / 2, r: 2.1, fill: '#3a3a3a', stroke: '#111', 'stroke-width': .3 }, bgc);
+    text(C(4), R('f') - 2.2, 'MODE', 1.3, '#333', 'middle', bgc);
+    bgc.onpointerdown = () => { sw.btnUp = false; capc.setAttribute('fill', '#1fa3a3'); };
+    bgc.onpointerup = bgc.onpointerleave = () => { sw.btnUp = true; capc.setAttribute('fill', '#3a3a3a'); };
+    buildSub = 0;
+    badge(1, C(1.4), R('f') - 1);
+    wire(C(3), R('h'), P['2'], oy + 2.54, '#1fa3a3', 'up', '→ D2|-6|1', 'D2', 2);
+    buildStep = 0;
+    return;
+  }
+  buildStep = 2;
+  const [gnd, vcc, sda, scl] = hp.map(([x, y]) => [x, y]);
+  wire(gnd[0], gnd[1], colX(10), rails.tn, '#222', 'lcd', '', 'GND → − rail|-9|-3', 1);
+  wire(vcc[0], vcc[1], colX(12), rails.tp, '#d22', 'lcd', '', 'VCC → + rail|9|0', 2);
+  wire(sda[0], sda[1], colX(14), rows[0], '#2b6fe0', 'lcd', '', '', 3);
+  wire(scl[0], scl[1], colX(16), rows[0], '#f2c230', 'lcd', '', '', 4);
+  wire(colX(14), rows[2], P.SDA, oy + 2.54, '#2b6fe0', 'up', '', 'SDA|4|0', 5);
+  wire(colX(16), rows[2], P.SCL, oy + 2.54, '#f2c230', 'up', '', 'SCL|-4|-3.4', 6);
+  buildStep = 1;
+  wire(P.b5V, oy + 50.76, colX(1), rails.bp, '#d22', 'down', '5V', '+ rail', 1);
+  wire(P.bGND, oy + 50.76, colX(2), rails.bn, '#222', 'down', 'GND', '− rail', 2);
+  wire(colX(60), rails.tp, colX(60), rails.bp, '#d22', 0, '+', '+', 3);
+  wire(colX(61), rails.tn, colX(61), rails.bn, '#222', 0, '−', '−', 4);
+  // passive buzzer (12 mm, legs 7.6 mm) cols 36(+)/39(-) row d; S8050 E-B-C cols 44-46 row g; 1k cols 45-52 row i
+  const yd = rows[3], yg = rows[5], yi = rows[8];
+  // SOUND switch cols 29-31 row c (middle 30): 5V rail -> col 29, col 30 -> buzzer +
+  buildStep = 4;
+  wire(colX(29), rows[0], colX(29), rails.tp, '#d22', 0, '', '+ rail', 2);
+  wire(colX(30), rows[1], colX(37), rows[1], '#d22', -3, '', '', 3);
+  buildSub = 1; slide('sound', colX(30), rows[2], 'SOUND', () => sw.sound, v => { sw.sound = v; buzzLevel(); }, true);
+  buildSub = 0; badge(1, colX(33.2), rows[2]);
+  // POWER switch cols 22-24 row h (middle 23): col 22 -> GND rail, col 23 -> D3
+  buildStep = 5;
+  wire(colX(22), rows[9], colX(22), rails.bn, '#222', 0, '', '− rail', 2);
+  wire(colX(23), rows[8], P['~3'], oy + 2.54, '#8a4fd6', 'up', '→ D3|5|1', 'D3', 3);
+  buildSub = 1; slide('power', colX(23), rows[7], 'POWER', () => sw.power, v => { sw.power = v; }, false);
+  buildSub = 0; badge(1, colX(26.2), rows[7]);
+  // MODE push button 6x6 across the centre channel: legs cols 6/8 rows e/f; col 6 -> D2, col 8 -> GND rail
+  buildStep = 6;
+  wire(colX(6), rows[2], P['2'], oy + 2.54, '#1fa3a3', 'up', '→ D2|-6|1', 'D2', 2);
+  wire(colX(8), rows[7], colX(8), rails.bn, '#222', 0, '', '− rail', 3);
+  buildSub = 1;
+  const bg = el('g', { style: 'cursor:pointer' });
+  el('rect', { x: colX(6) - 1.2, y: rows[3] - 1.2, width: colX(8) - colX(6) + 2.4, height: rows[6] - rows[3] + 2.4, rx: .5, fill: '#2a2a2a' }, bg);
+  const cap = el('circle', { cx: colX(7), cy: (rows[3] + rows[6]) / 2, r: 2.3, fill: '#3a3a3a', stroke: '#111', 'stroke-width': .3 }, bg);
+  text(colX(7), rows[3] - 2.2, 'MODE', 1.3, '#333', 'middle', bg);
+  bg.onpointerdown = () => { sw.btnUp = false; cap.setAttribute('fill', '#1fa3a3'); };
+  bg.onpointerup = bg.onpointerleave = () => { sw.btnUp = true; cap.setAttribute('fill', '#3a3a3a'); };
+  buildSub = 0; badge(1, colX(10.4), rows[4] + 1.3);
+  buildStep = 3;
+  wire(colX(39), rows[1], colX(46), yg - 2.54 * 0 + 2.54, '#2a9d4a', 6, '', '', 4);
+  buildSub = 3;
+  el('rect', { x: colX(45) - .4, y: yi - .45, width: colX(52) - colX(45) + .8, height: .9, fill: '#bbb' });
+  el('rect', { x: colX(47.3), y: yi - 1.1, width: 6.3, height: 2.2, rx: 1, fill: '#4f7fd6' });
+  [['#7a4a1e', 0], ['#111', 1.4], ['#111', 2.6], ['#7a4a1e', 3.8], ['#7a4a1e', 5.4]].forEach(([c, dx]) => el('rect', { x: colX(47.3) + .6 + dx, y: yi - 1.1, width: .5, height: 2.2, fill: c }));
+  text(colX(48.5), yi + 2.6, '1k', 1.1, '#555');
+  buildSub = 1;
+  // S8050 seen from above: round back up, FLAT printed face toward you (down the screen), legs E B C left to right
+  const tw = colX(46.5) - colX(43.5);
+  el('path', { d: `M${colX(43.5)},${yg + .6} h${tw} v-.4 a${tw / 2} ${tw / 2.2} 0 0 0 -${tw} 0 z`, fill: '#1a1a1a', stroke: '#555', 'stroke-width': .2 });
+  el('rect', { x: colX(43.5), y: yg + .2, width: tw, height: 1.6, fill: '#2a2a2a', stroke: '#888', 'stroke-width': .2 });
+  text(colX(45), yg + 1.45, '8050', 1.15, '#ddd');
+  text(colX(44), yg + 3.9, 'E', 1.5, '#111'); text(colX(45), yg + 3.9, 'B', 1.5, '#111'); text(colX(46), yg + 3.9, 'C', 1.5, '#111');
+  text(colX(45), yg - 4.6, 'flat side → you', 1.1, '#444');
+  buildSub = 0;
+  badge(1, colX(42.6), yg - 4.6);
+  badge(3, colX(48.8), yi - 3.2);
+  wire(colX(44), rows[9], colX(44), rails.bn, '#222', 0, '', '− rail', 5);
+  wire(colX(52), rows[9], P['~9'], oy + 2.54, '#e07a1f', 'up', '→ D9|10|7', 'D9', 6);
+  buildSub = 2;
+  el('circle', { cx: (colX(37) + colX(39)) / 2, cy: yd - 1.3, r: 6, fill: '#151515' });
+  buzzerEl = el('circle', { cx: (colX(37) + colX(39)) / 2, cy: yd - 1.3, r: 5.4, fill: 'none', stroke: '#444', 'stroke-width': .6 });
+  el('circle', { cx: (colX(37) + colX(39)) / 2, cy: yd - 1.3, r: 1, fill: '#333' });
+  // its 2 legs underneath, drawn on top so you can see where they land: + in g37, - in g40
+  for (const [c, lbl] of [[37, '+'], [39, '−']]) {
+    el('circle', { cx: colX(c), cy: yd, r: .9, fill: '#d9d9d9', stroke: '#777', 'stroke-width': .25 });
+    text(colX(c), yd + .55, lbl, 1.5, lbl === '+' ? '#d22' : '#333');
+  }
+  text((colX(37) + colX(39)) / 2, yd - 8, 'passive buzzer (legs underneath)', 1.2, '#555');
+  buildSub = 0;
+  badge(2, colX(33.2), yd - 5);
+  buildStep = 0;
+}
+
+// ---------- CGRAM designer ----------
+const cbits = new Array(40).fill(0);
+function renderDesigner() {
+  [...$('designer').children].forEach((c, i) => c.classList.toggle('on', !!cbits[i]));
+  const rowsB = [...Array(8)].map((_, r) => 'B' + cbits.slice(r * 5, r * 5 + 5).join(''));
+  $('ccode').textContent = `byte custom[8] = {\n  ${rowsB.slice(0, 4).join(', ')},\n  ${rowsB.slice(4).join(', ')}\n};`;
+}
+for (let i = 0; i < 40; i++) { const c = document.createElement('i'); c.onclick = () => { cbits[i] ^= 1; renderDesigner(); }; $('designer').append(c); }
+$('cclear').onclick = () => { cbits.fill(0); renderDesigner(); };
+$('cinvert').onclick = () => { cbits.forEach((v, i) => cbits[i] = v ^ 1); renderDesigner(); };
+$('cinsert').onclick = () => { const t = $('code'), p = t.selectionStart; t.setRangeText($('ccode').textContent + '\n', p, p, 'end'); t.focus(); };
+
+// ---------- wiring up ----------
+const examples = [...document.querySelectorAll('script[id^="ex-"]')];
+$('examples').append(new Option('GLYPH face (glyph repo)', 'glyph'));
+$('examples').append(new Option('My last edited sketch', 'saved'));
+examples.forEach(s => $('examples').append(new Option(s.id.slice(3), s.id)));
+const loadExample = async v => { $('code').value = v === 'glyph' ? await (await fetch('sketches/glyph_lcd.ino', { cache: 'no-store' })).text() : v === 'saved' ? (saved || '') : $(v).textContent; run(); };
+$('examples').onchange = () => loadExample($('examples').value);
+const soundUi = () => {
+  const live = buzz.ctx && buzz.ctx.state === 'running';
+  $('sound').textContent = !live ? '🔇 Click anywhere for sound' : buzz.muted ? '🔇 Muted' : '🔊 Sound on';
+  $('sound').classList.toggle('go', live && !buzz.muted);
+};
+buzzInit();
+buzz.ctx.onstatechange = soundUi;
+const wakeAudio = () => { if (buzz.ctx.state !== 'running') buzz.ctx.resume(); };
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, wakeAudio, true));
+$('sound').onclick = () => { if (buzz.ctx.state !== 'running') return; buzz.muted = !buzz.muted; buzzLevel(); soundUi(); };
+soundUi();
+let streamT = null;
+const sendLine = () => {
+  let txt = $('say').value; if (!txt) return; $('say').value = '';
+  if ($('who').value === 'you' && txt[0] !== ':' && txt[0] !== '>') txt = '> ' + txt;
+  sendRaw(txt);
+};
+const sendRaw = txt => {
+  if (txt[0] === '>') { $('captext').textContent = 'you › ' + txt.slice(1).trim(); serialQ += txt + '\n'; return; }
+  clearInterval(streamT);
+  if (+$('tps').value === 0 || txt[0] === ':') { serialQ += txt + '\n'; return; }
+  let i = 0;                     // ~4 characters per token, like an LLM stream
+  streamT = setInterval(() => { serialQ += txt.slice(i, i + 4); i += 4; if (i >= txt.length) { serialQ += '\n'; clearInterval(streamT); } }, 1000 / +$('tps').value);
+};
+$('tps').oninput = () => { $('tpsv').textContent = +$('tps').value ? $('tps').value + ' tok/s' : 'normal / whole line'; };
+$('tps').onchange = () => { serialQ += ':rate ' + $('tps').value + '\n'; };   // the sketch paces demo + whole lines to match
+$('buzzfx').onchange = () => { if (buzz.ctx) { buzz.buzzerPath.gain.value = $('buzzfx').checked ? 1 : 0; buzz.cleanPath.gain.value = $('buzzfx').checked ? 0 : 1; } };
+$('speak').onclick = sendLine;
+// conversation tester: you / glyph turns, played through the same serial path
+const CONVOS = {
+  'cheer up': [['you', 'hi glyph'], ['glyph', 'hi there! how are you today?'], ['you', 'honestly i am really sad and tired'], ['glyph', 'oh no... i am sorry. want to talk about it?'], ['you', 'thanks, you are really cute'], ['glyph', 'aww, thank you! that makes me so happy!']],
+  'rude then sorry': [['you', 'you are stupid'], ['glyph', 'hey... that was not very nice.'], ['you', 'I HATE YOU'], ['glyph', 'why are you so angry at me?'], ['you', 'haha sorry, i love you glyph'], ['glyph', 'okay, okay. i forgive you!']],
+  'curious chat': [['you', 'can i ask you something?'], ['glyph', 'of course! what is it?'], ['you', 'hmm, do you ever get bored?'], ['glyph', 'sometimes... when nobody talks to me.'], ['you', 'wow really?'], ['glyph', 'really! so keep talking to me, okay?']],
+  'kawaii mode': [[':', ':mode kawaii'], ['you', 'hi cutie'], ['glyph', 'hiii! you are so nice, uwu'], ['you', 'do you like pixels?'], ['glyph', 'i LOVE pixels so much!'], [':', ':mode basic']],
+  'robot mode': [[':', ':mode robot'], ['you', 'hello robot'], ['glyph', 'greetings, human. how may i help?'], ['you', 'you are dumb'], ['glyph', 'ERROR. that is not nice.'], [':', ':mode basic']],
+  'brows mode': [[':', ':mode brows'], ['you', 'hey you'], ['glyph', 'hmm? oh, hello there.'], ['you', 'are you angry?'], ['glyph', 'no, i am just thinking. eyebrows do that.'], ['you', 'haha, you are great'], ['glyph', 'why thank you!'], [':', ':mode basic']],
+  'grumpy mode': [[':', ':mode grumpy'], ['you', 'good morning!'], ['glyph', 'ugh. what is so good about it?'], ['you', 'aww, cheer up'], ['glyph', 'fine. maybe a little.'], [':', ':mode basic']],
+};
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const waitSpoken = () => new Promise(r => { spokenWaiters.push(r); setTimeout(r, 20000); });
+let playing = 0;
+$('play').onclick = async () => {
+  const turns = CONVOS[$('convo').value]; if (!turns) return;
+  const me = ++playing;
+  for (const [who, line] of turns) {
+    if (me !== playing) return;
+    if (who === ':') { serialQ += line + '\n'; await wait(1200); continue; }
+    if (who === 'you') { serialQ += ':typing\n'; await wait(1400); sendRaw('> ' + line); await wait(1300); continue; }
+    const done = waitSpoken(); $('say').value = line; $('who').value = 'glyph'; sendLine(); await done; await wait(900);
+  }
+};
+$('samples').onchange = () => { $('say').value = $('samples').value; $('samples').value = ''; sendLine(); };
+$('say').onkeydown = e => { if (e.key === 'Enter') sendLine(); };
+let saved = null; try { saved = localStorage.getItem('lab-sketch-v2'); } catch {}
+$('code').oninput = () => { saved = $('code').value; try { localStorage.setItem('lab-sketch-v2', saved); } catch {} };
+$('code').onkeydown = e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(); }
+  if (e.key === 'Tab') { e.preventDefault(); e.target.setRangeText('  ', e.target.selectionStart, e.target.selectionEnd, 'end'); }
+};
+$('run').onclick = run;
+$('stop').onclick = stop;
+$('reset').onclick = () => { stop(); powerOn(); };
+$('addr').onchange = () => { bus.addr = +$('addr').value; run(); };
+$('bljumper').onchange = () => { if (!$('bljumper').checked) core.bl = false; };
+document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button[data-tab]').forEach(x => x.classList.toggle('go', x === b));
+  $('tab-bench').hidden = b.dataset.tab !== 'bench'; $('tab-parts').hidden = b.dataset.tab !== 'parts';
+});
+fetch('kit.json').then(r => r.json()).then(kit => {
+  $('kitnote').textContent = `${kit.kit} · ${kit.note}`;
+  const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  $('parts').innerHTML = kit.parts.map(p => `<section class="card" data-s="${esc((p.name + ' ' + p.cat + ' ' + JSON.stringify(p.specs)).toLowerCase())}">
+    ${p.img ? `<img src="img/${p.img}.jpg" alt="" onerror="this.remove()" style="float:right;width:72px;border-radius:6px;background:#fff;margin-left:8px">` : ''}<h3>${esc(p.name)}</h3><div class="meta">x${p.qty} · ${esc(p.cat)} · sim: <span class="sim-${p.sim}">${p.sim}</span></div>
+    <dl>${Object.entries(p.specs).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+    ${p.learn ? `<p>${esc(p.learn)}</p>` : ''}</section>`).join('');
+});
+if (location.hash === '#parts') document.querySelector('[data-tab=parts]').click();
+$('q').oninput = () => { const q = $('q').value.toLowerCase(); document.querySelectorAll('.card').forEach(c => c.hidden = !c.dataset.s.includes(q)); };
+const setFocus = on => { document.body.classList.toggle('focus', on); $('focus').classList.toggle('go', on); try { localStorage.setItem('lab-focus', on ? '1' : ''); } catch {} };
+$('focus').onclick = () => setFocus(!document.body.classList.contains('focus'));
+try { setFocus(!!localStorage.getItem('lab-focus')); } catch {}
+$('lcdfs').onclick = glass.ondblclick = () => document.fullscreenElement ? document.exitFullscreen() : glass.requestFullscreen();
+const GUIDE_BUILT = [   // view = [x, y, w, h] in mm the drawing zooms to; li numbers match the yellow badges
+  null,
+  { t: 'Step 1 of 6: Power rails', view: [0, 52, 250, 66], note: 'Unplug the USB while you wire. Do the numbers in order.', holes: [], li: [
+    'Board <code>5V</code> pin (bottom header) → bottom <b style="color:#f55">red +</b> rail, left end.',
+    'Board <code>GND</code> pin (next to 5V) → bottom <b style="color:#6af">blue −</b> rail, left end.',
+    'Right end: short wire from the top <b style="color:#f55">red +</b> rail down to the bottom <b style="color:#f55">red +</b> rail.',
+    'Right end: short wire from the top <b style="color:#6af">blue −</b> rail down to the bottom <b style="color:#6af">blue −</b> rail.'] },
+  { t: 'Step 2 of 6: LCD screen', view: [0, 0, 215, 92], note: 'Use 4 female-to-male jumpers on the 4 pins sticking out of the back of the LCD.', holes: ['j15:l', 'j17:r', 'h15:l', 'h17:r'], li: [
+    'LCD <code>GND</code> → top <b style="color:#6af">blue −</b> rail.',
+    'LCD <code>VCC</code> → top <b style="color:#f55">red +</b> rail.',
+    'LCD <code>SDA</code> → hole <code>j15</code>.',
+    'LCD <code>SCL</code> → hole <code>j17</code>.',
+    'Hole <code>h15</code> → board <code>SDA</code> pin (top-left header, glowing yellow).',
+    'Hole <code>h17</code> → board <code>SCL</code> pin (right next to it).'],
+    after: 'Test: plug in USB and upload. The face appears. Blank or blocks? Turn the small blue screw on the back of the LCD.' },
+  { t: 'Step 3 of 6: Voice (buzzer + transistor)', view: [152, 58, 82, 54], note: 'Yellow bands = holes joined inside the board. A wire in the same band as a leg is connected to it (never two things in one hole).', pics: [['passive_buzzer', 'USE THIS: passive (green board underneath)'], ['active_buzzer', 'not this: active (white sticker, sealed)'], ['npn', 'S8050 NPN (printed 8050)']],
+    holes: ['g38:l', 'g40:r', 'e45:l', 'e46', 'e47', 'b46:l', 'b53:r', 'i40:r', 'd47:r', 'a45:l', 'a53:d'], li: [
+    'Transistor (printed <b>S8050</b>, the second line like "D 331" is just a batch code): <b>flat printed side facing you</b>, legs into <code>e45</code> <code>e46</code> <code>e47</code> (E · B · C).',
+    'Passive buzzer: <b style="color:#f55">+</b> leg into <code>g38</code>, other leg into <code>g40</code>.',
+    '1k resistor (brown-black-black-brown-brown): <code>b46</code> to <code>b53</code> (either way round).',
+    'Wire <code>i40</code> → <code>d47</code> (buzzer to the transistor\'s right leg).',
+    'Wire <code>a45</code> → bottom <b style="color:#6af">blue −</b> rail.',
+    'Wire board <code>D9</code> → <code>a53</code> (the long orange one).'],
+    after: 'The buzzer + gets its power from the SOUND switch in step 4. To test now: a wire from <code>i38</code> to the top red + rail.' },
+  { t: 'Step 4 of 6: SOUND switch', view: [148, 56, 62, 38], note: 'Yellow bands = holes joined inside the board.', pics: [['slide_switch', 'slide switch (3 pins)']], holes: ['h30', 'h31', 'h32', 'j30:l', 'i31:l', 'i38:r'], li: [
+    'Slide switch: 3 pins into <code>h30</code> <code>h31</code> <code>h32</code> (middle pin in 31).',
+    'Wire <code>j30</code> → top <b style="color:#f55">red +</b> rail.',
+    'Wire <code>i31</code> → <code>i38</code> (powers the buzzer + leg).'] },
+  { t: 'Step 5 of 6: POWER switch', view: [118, 78, 56, 38], pics: [['slide_switch', 'slide switch (3 pins)']], holes: ['c23', 'c24', 'c25', 'a23:l', 'b24:r'], li: [
+    'Slide switch: 3 pins into <code>c23</code> <code>c24</code> <code>c25</code> (middle pin in 24).',
+    'Wire <code>a23</code> → bottom <b style="color:#6af">blue −</b> rail.',
+    'Wire <code>b24</code> → board <code>D3</code> pin.'] },
+  { t: 'Step 6 of 6: MODE button', view: [80, 58, 52, 52], pics: [['push_button', 'small push button (4 legs)']], holes: ['g7', 'g9', 'd7', 'd9', 'h7:l', 'c9:r'], li: [
+    'Push button across the middle gap: legs in <code>d7</code> <code>d9</code> (bottom half) and <code>g7</code> <code>g9</code> (top half).',
+    'Wire <code>h7</code> → board <code>D2</code> pin.',
+    'Wire <code>c9</code> → bottom <b style="color:#6af">blue −</b> rail.'],
+    after: 'Press does nothing, or always pressed? Turn the button 90°. Then upload, open Serial Monitor at 9600 baud (Newline) and say hi.' },
+];
+const GUIDE_COMPACT = [
+  null,
+  { t: 'Compact 1 of 6: Power', view: [0, 52, 130, 66], note: 'Unplug the USB while you wire. Only the BOTTOM rails are used in this layout.', holes: [], li: [
+    'Board <code>5V</code> → bottom <b style="color:#f55">red +</b> rail, column 1.',
+    'Board <code>GND</code> → bottom <b style="color:#6af">blue −</b> rail, column 2.'] },
+  { t: 'Compact 2 of 6: LCD', view: [0, 0, 215, 118], note: '4 female-to-male jumpers on the LCD pins. SDA and SCL go straight into the board, no breadboard holes.', holes: [], li: [
+    'LCD <code>GND</code> → bottom <b style="color:#6af">blue −</b> rail.',
+    'LCD <code>VCC</code> → bottom <b style="color:#f55">red +</b> rail.',
+    'LCD <code>SDA</code> → board <code>SDA</code> pin (top-left header).',
+    'LCD <code>SCL</code> → board <code>SCL</code> pin (right next to it).'] },
+  { t: 'Compact 3 of 6: Voice', view: [96, 72, 60, 42], note: 'Yellow bands = holes joined inside the board. Here the parts share columns, so 2 wires disappear.', pics: [['passive_buzzer', 'passive buzzer'], ['npn', 'S8050 NPN']],
+    holes: ['e12:u', 'e13', 'e14', 'a14:d', 'a16:d', 'd9:u', 'd13:r', 'a9:d', 'd12:l'], li: [
+    'Transistor S8050, <b>flat printed side toward row a</b>: legs into <code>e12</code> <code>e13</code> <code>e14</code> (E · B · C).',
+    'Passive buzzer: <b>−</b> leg into <code>a14</code> (same column as the transistor\'s C), <b style="color:#f55">+</b> leg into <code>a16</code>.',
+    '1k resistor: <code>d9</code> to <code>d13</code> (same column as B).',
+    'Wire board <code>D9</code> → <code>a9</code>.',
+    'Wire <code>d12</code> → bottom <b style="color:#6af">blue −</b> rail (E to ground).'] },
+  { t: 'Compact 4 of 6: SOUND switch', view: [96, 72, 60, 42], pics: [['slide_switch', 'slide switch']], holes: ['d15', 'd16', 'd17', 'e17:r'], li: [
+    'Slide switch: pins into <code>d15</code> <code>d16</code> <code>d17</code>. Middle pin d16 shares column 16 with the buzzer +.',
+    'Wire <code>e17</code> → bottom <b style="color:#f55">red +</b> rail.'] },
+  { t: 'Compact 5 of 6: POWER switch', view: [78, 70, 48, 44], pics: [['slide_switch', 'slide switch']], holes: ['b5:u', 'b6', 'b7', 'a5:l', 'a6:d'], li: [
+    'Slide switch: pins into <code>b5</code> <code>b6</code> <code>b7</code> (middle pin in 6).',
+    'Wire <code>a5</code> → bottom <b style="color:#6af">blue −</b> rail. This one ground wire also serves the MODE button.',
+    'Wire <code>a6</code> → board <code>D3</code>.'] },
+  { t: 'Compact 6 of 6: MODE button', view: [78, 56, 48, 56], pics: [['push_button', 'push button']], holes: ['e3:d', 'e5:d', 'f3', 'f5', 'h3:l'], li: [
+    'Push button across the middle gap: legs in <code>e3</code> <code>e5</code> (bottom) and <code>f3</code> <code>f5</code> (top). Leg e5 is already grounded by a5.',
+    'Wire <code>h3</code> → board <code>D2</code>.'],
+    after: 'Done: 12 jumpers in columns 1-17. Upload and say hi.' },
+];
+let LAYOUT = 'built';
+try { LAYOUT = localStorage.getItem('lab-layout') || 'built'; } catch {}
+const GUIDE = LAYOUT === 'compact' ? GUIDE_COMPACT : GUIDE_BUILT;
+let gStep = 1;
+function drawMarks() {               // pink rings on the holes, yellow bands on the 5 holes each one is connected to
+  const { colX, rows } = geo, L = 'jihgfedcba';
+  GUIDE.forEach((st, n) => { if (!st) return;
+    const g = markGroup(n), bands = el('g', {}, g), rings = el('g', {}, g), labels = el('g', {}, g), seen = new Set();
+    const hs = st.holes.map(h => { const [name, side] = h.split(':'); return { name, side, r: L.indexOf(name[0]), c: +name.slice(1) }; });
+    hs.forEach(({ name, r, c }) => {
+      const half = r < 5 ? 0 : 5, key = c + ':' + half;
+      if (!seen.has(key)) { seen.add(key); bands.lastHole = el('rect', { x: colX(c - 1) - 1.1, y: rows[half] - 1.1, width: 2.2, height: rows[half + 4] - rows[half] + 2.2, rx: 1.1, fill: 'rgba(255,213,74,.32)', stroke: 'rgba(200,150,0,.5)', 'stroke-width': .2, 'data-holes': '' }, bands); }
+      const band = [...bands.children].find(b => b.dataset.key === key) || bands.lastElementChild; band.dataset.key = key; band.dataset.holes += ' ' + name;
+      el('circle', { cx: colX(c - 1), cy: rows[r], r: 1.25, fill: 'none', stroke: '#ff2d95', 'stroke-width': .45, 'data-holes': name }, rings);
+    });
+    for (let i = 0; i < hs.length; i++) {   // one label per run of neighbouring holes in a row (e45·46·47)
+      let j = i; while (j + 1 < hs.length && hs[j + 1].r === hs[i].r && hs[j + 1].c === hs[j].c + 1) j++;
+      const run = hs.slice(i, j + 1), txt = run[0].name + run.slice(1).map(h => '·' + h.c).join(''), side = run[0].side || (run[0].r < 5 ? 'u' : 'd');
+      const x = (colX(run[0].c - 1) + colX(run[run.length - 1].c - 1)) / 2, y = rows[run[0].r], w = txt.length * 1.05 + 1.6;
+      const [lx, ly] = { u: [x, y - 4.5], d: [x, y + 2.1], l: [x - w / 2 - 1.8, y - 1.2], r: [x + w / 2 + 1.8, y - 1.2] }[side];
+      const lg = el('g', { 'data-holes': run.map(h => h.name).join(' ') }, labels);
+      el('rect', { x: lx - w / 2, y: ly, width: w, height: 2.4, rx: .5, fill: '#ff2d95' }, lg);
+      text(lx, ly + 1.75, txt, 1.6, '#fff', 'middle', lg);
+      i = j;
+    }
+  });
+}
+let gSub = 1;
+function holesOf(li) { return [...li.matchAll(/<code>([a-j]\d{1,2})<\/code>/g)].map(m => m[1]); }
+function showSub(k) {            // one wire / part at a time: it glows, the rest of the step fades
+  gSub = k;
+  const want = k ? holesOf(GUIDE[gStep].li[k - 1]) : null;
+  svg.querySelectorAll(`[data-step="${gStep}"]`).forEach(e => {
+    const mine = k && +e.dataset.sub === k;
+    e.classList.toggle('dim2', !!k && !mine); e.classList.toggle('hl', !!mine);
+  });
+  svg.querySelectorAll(`.marks[data-marks="${gStep}"] [data-sub]`).forEach(e => e.style.display = k && +e.dataset.sub !== k ? 'none' : '');
+  svg.querySelectorAll(`.marks[data-marks="${gStep}"] [data-holes]`).forEach(e => e.style.display = !want || e.dataset.holes.trim().split(' ').some(h => want.includes(h)) ? '' : 'none');
+  [...$('gList').children].forEach((li, i) => li.classList.toggle('cur', i + 1 === k));
+  $('gPrev').disabled = gStep <= 1 && k <= 1; $('gNext').disabled = gStep >= 6 && k >= GUIDE[gStep].li.length;
+}
+let viewAnim = null;
+function zoomTo(v) {              // tween the drawing's viewBox
+  const from = svg.getAttribute('viewBox').split(' ').map(Number), t0 = performance.now();
+  cancelAnimationFrame(viewAnim);
+  const stepAnim = now => {
+    const k = Math.min(1, (now - t0) / 400), e = k * (2 - k);
+    svg.setAttribute('viewBox', from.map((f, i) => f + (v[i] - f) * e).join(' '));
+    if (k < 1) viewAnim = requestAnimationFrame(stepAnim);
+  };
+  viewAnim = requestAnimationFrame(stepAnim);
+}
+function showStep(n) {
+  gStep = n;
+  zoomTo(n > 0 ? GUIDE[n].view : [0, 0, 250, 118]);
+  svg.querySelectorAll('[data-step]').forEach(e => e.classList.toggle('dim', n > 0 && +e.dataset.step > n));
+  svg.querySelectorAll('[data-step]').forEach(e => e.style.opacity = n > 0 && +e.dataset.step < n ? '.55' : '');
+  svg.querySelectorAll('.marks').forEach(m => m.classList.toggle('on', +m.dataset.marks === n));
+  if (n > 0) {
+    $('gTitle').textContent = GUIDE[n].t; $('gList').innerHTML = GUIDE[n].li.map(l => `<li>${l}</li>`).join('');
+    $('gNote').innerHTML = GUIDE[n].note || ''; $('gAfter').innerHTML = GUIDE[n].after || '';
+    $('gPics').innerHTML = (GUIDE[n].pics || []).map(([f, c]) => `<figure><img src="img/${f}.jpg" alt="" onerror="this.parentNode.remove()"><figcaption>${c}</figcaption></figure>`).join('');
+  }
+  if (n > 0) { [...$('gList').children].forEach((li, i) => li.onclick = () => showSub(i + 1)); showSub(1); }
+}
+$('guideBtn').onclick = () => { const on = $('guide').hidden; $('guide').hidden = !on; $('guideBtn').classList.toggle('go', on); showStep(on ? gStep : 0); };
+$('gPrev').onclick = () => { if (gSub > 1) showSub(gSub - 1); else if (gStep > 1) { showStep(gStep - 1); showSub(GUIDE[gStep].li.length); } };
+$('gNext').onclick = () => { if (gSub < GUIDE[gStep].li.length) showSub(gSub + 1); else if (gStep < 6) showStep(gStep + 1); };
+$('gLayout').value = LAYOUT;
+$('gLayout').onchange = () => { try { localStorage.setItem('lab-layout', $('gLayout').value); localStorage.setItem('lab-guide-open', '1'); } catch {} location.reload(); };
+$('gAll').onclick = () => { zoomTo([0, 0, 250, 118]); svg.querySelectorAll('.dim2,.hl').forEach(e => e.classList.remove('dim2', 'hl')); svg.querySelectorAll('.marks *').forEach(e => e.style.display = ''); svg.querySelectorAll('[data-step]').forEach(e => { e.classList.remove('dim'); e.style.opacity = ''; }); svg.querySelectorAll('.marks').forEach(m => m.classList.add('on')); };
+let relaySeq = null;
+setInterval(async () => {
+  try {
+    const r = await fetch('serial?since=' + (relaySeq ?? 1e12), { cache: 'no-store' }); if (!r.ok) return;
+    const j = await r.json();
+    if (relaySeq !== null) for (const t of j.items) { if (t[0] === '>') $('captext').textContent = 'you › ' + t.slice(1).trim(); serialQ += t; }
+    relaySeq = j.next;              // first poll only learns where "now" is: no replay of old chats
+  } catch {}
+}, 150);
+powerOn(); drawScene(); drawMarks();
+try { if (localStorage.getItem('lab-guide-open')) { localStorage.removeItem('lab-guide-open'); setTimeout(() => $('guideBtn').click(), 300); } } catch {} renderDesigner(); requestAnimationFrame(frame);
+loadExample('glyph');
+</script>
+</body>
+</html>
