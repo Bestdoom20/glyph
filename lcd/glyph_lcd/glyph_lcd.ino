@@ -160,7 +160,7 @@ const int HUM[] = {392, 440, 349};
 
 // ---- buzzer voice: Timer1 hardware PWM on D9 (OC1A) ----
 // Pitch = ICR1, loudness = duty (OCR1A). One interrupt per wave period runs the envelope
-// (swell 20 %, hold, release 30 %), a +-1.6 % random wobble per period (breath), a ~40 ms
+// (swell 30 %, hold, release 30 %: measured peak at ~30-40 % in the reference), a +-1.6 % random wobble per period (breath), a ~40 ms
 // glide into each new pitch, and the question slide. A note that starts while one is still
 // sounding re-swells from 40 % instead of silence: legato babble, not beeps. It runs off the CPU's main path, so LCD bus stalls never chop the sound.
 // SIM-REPLACE-BEGIN (the lab swaps this block for the same model in WebAudio)
@@ -177,7 +177,7 @@ void voiceStart(long freq, int ms, bool rise) {
   bool legato = TIMSK1;                        // previous note still sounding
   vTarget = top;
   if (!legato) vTop = top;
-  vLen = len; vA = len / 5; vR = len - len * 3 / 10;
+  vLen = len; vA = len * 3 / 10; vR = len - len * 3 / 10;
   vPos = legato ? vA * 2 / 5 : 0;
   vSlide = rise ? -(int16_t)(top / 12) : 0;
   if (legato) { interrupts(); return; }
@@ -412,14 +412,14 @@ void startSyllable(byte pos, int8_t v, unsigned long now) {
   if (fading) f = f * 85 / 100;
   if (wordIs(pos, true)) f = f * 130 / 100;
   f = f + f * random(-3, 4) / 100;               // no two buzzes alike
-  note(f, now, (fading ? 110 : 180) * ex(mood, 7) / 100, V_MOUTH[v], wordIs(pos, false));   // longer than the gap: babble
+  note(f, now, (fading ? 100 : 160) * ex(mood, 7) / 100, V_MOUTH[v], wordIs(pos, false));   // longer than the gap: babble
 }
 
 void tickVoice(unsigned long now) {   // mouth follows the note's envelope; the timer plays it
   if (sylFreq > 0 && now >= sylEnd) { sylFreq = 0; if (sayLen == 0) viseme = -1; }
   if (sylFreq > 0) {
     unsigned long t = now - sylStart, len = sylEnd - sylStart;
-    bool partOpen = t < len / 5 || t > len * 7 / 10;          // swell / release
+    bool partOpen = t < len * 3 / 10 || t > len * 7 / 10;     // swell / release
     viseme = sylViseme < 0 ? -1 : (partOpen ? V_SMALL : sylViseme);
   } else if (sayLen > 0) {
     viseme = sayPos > 0 && isalpha(say[sayPos - 1]) ? V_SMALL : FLAT;
