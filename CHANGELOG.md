@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **GLYPH bridge** (`lcd/bridge/glyph_bridge.py`): terminal/Telegram chat -> Claude (`claude-opus-5-5`, streamed, low effort, server-side refusal fallback) -> face over serial or the Kit Lab relay. Sends `:typing`, `> you`, then reply tokens. `--echo` brain for wiring tests.
+
 - **GLYPH-LCD profiles**: basic, kawaii (+ beauty mark, ROM middle dot), robot, grumpy, brows (new). Sleepy profile retired; its faces stay. 7 brow eyes and 8 brow faces. Each profile has its own curious face.
 - **GLYPH-LCD near-zero CPU**: idle-sleep between frames (`nap`), unchanged frames skipped by a 22-bit face key, voice ISR on a 16-bit phase (846 -> 652 bytes, ~2x fewer cycles at 16 kHz). Behaviour unchanged.
 
