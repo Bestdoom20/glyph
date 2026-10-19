@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **GLYPH-LCD fixes**: pace now follows the text's arrival rate (square-root curve, 30-160% letter time; whole-line bursts stay at 100%) and notes shorten with the pace. Breath noise fades with the envelope squared, which removes the hiss tail at the end of each blip.
+
 - **GLYPH-LCD wavetable voice**: vowel waveforms (buzz + 3 formants) fitted to the reference voice's measured formants and 39 dB spectral tilt. Played through a 16 kHz interrupt into 62.5 kHz PWM, with breath noise. The vowel picks the timbre, not the pitch. `:voice` presets (guard/default/woman/child/old with wobble). Base pitch 130 Hz.
 - **GLYPH-LCD streaming**: text is spoken as it arrives; pace follows the backlog for LLM token streams. Real input cuts off the demo.
 - **GLYPH-LCD switches**: SOUND slide switch in series with the buzzer; POWER slide switch on D3 (screen off + power-down sleep, pin-change wake).
