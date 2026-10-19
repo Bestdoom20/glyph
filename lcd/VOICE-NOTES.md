@@ -23,16 +23,27 @@ Reference: unitoftime's Mythfall devlog "I Gave My NPCs Voices Without Recording
 
 The envelope peaks 28-42% into each note.
 
-## Mapping to one passive buzzer
+## Tone fit (LPC on 100 voiced frames of the demo babble)
+
+- F0 median **130 Hz** (p10-p90: 103-184)
+- spectral tilt: low-harmonic peak sits **39 dB** above the 2-4 kHz peak, a dark, mellow buzz
+- harmonics-to-noise ~5 dB by autocorrelation; pitch wobble drags this figure down, so breath is set ~10 dB under the voice
+- vowel clusters (F1/F2/F3 Hz): ah 595/1377/2447 · eh 433/1829/3268 · ee 292/2154/3574 · ee-front 290/3170/3726 · oh 427/664/(2450)
+
+`tools/make_vowels.py` renders a Rosenberg-pulse buzz through 3 cascade resonators at those formants. It solves a one-pole tilt filter until the tables' average tilt equals 39.2 dB, then stores one 128-sample period per vowel (at 125 Hz = 16 kHz). LPC on the generated tables recovers the target formants within ~10%.
+
+## Mapping to GLYPH-LCD
 
 | reference | GLYPH-LCD |
 |---|---|
-| vowel = formant clip | vowel = pitch step (a 100%, e 112%, i 126%, y 119%, o 89%, u 84%), mouth shape per vowel |
-| resampled clip | Timer1 PWM: pitch = ICR1, loudness = duty |
-| envelope | ISR per wave period: swell 30%, hold, release 30% |
-| breath + imperfection | ±1.6% random period wobble (xorshift8) |
+| pre-rendered vowel clip per character | `VOX[6][128]` one-period vowel waveforms in flash, fitted to the reference |
+| `PlayPitched` resample | phase-step wavetable at 16 kHz (formants move with pitch, same as resampling) |
+| speaker output | 62.5 kHz 8-bit PWM on D9 -> S8050 -> passive buzzer |
+| envelope / breath / imperfection | swell 30% · hold · release 30%; noise ~10 dB under; ±1.5% pitch wobble every 4 ms |
 | overlap | 160 ms notes, legato re-swell from 40%, ~40 ms glide |
-| phrase tune, punctuation, caps | same rules: −3%/syllable drift (max −21%), ! +20%, ... −15% + shorter, CAPS +30%, ? slides up ~25% |
-| character voice | `:pitch N` (base 220 Hz) + per-expression pitch/speed columns in `EX[]` |
+| pitch = voice + phrase + nudge + wobble | same: −3%/syllable (max −21%), ±3% nudge, `:voice old` 2 Hz ±4% wobble |
+| punctuation tune, caps | ! +20%, ... −15% and shorter, CAPS +30%, ? slides up ~25% |
+| character voices | `:voice guard 100 / default 130 / woman 200 / child 260 / old 115+wobble`, or `:pitch N` |
+| skip line | n/a: text streams; pace follows the token backlog |
 
-A square wave on a ~2.7 kHz resonant buzzer can't do formants or "tube length". Those are the two parts of the reference this hardware can't copy.
+What still differs: the reference renders separate clip sets per character, so its "tube length" is independent of pitch. Here the formants scale with the pitch. And the final sound goes through a tiny magnetic buzzer (~2.7 kHz resonance, weak below ~400 Hz) rather than speakers. The lab's **buzzer sound** toggle switches between clean synthesis (to compare with the video) and the buzzer model.

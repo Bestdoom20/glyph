@@ -4,10 +4,15 @@
 
   Wiring: LCD GND -> GND, VCC -> 5V, SDA -> A4, SCL -> A5.
           Passive buzzer via S8050 NPN: D9 -> 1k -> base, emitter -> GND,
-          collector -> buzzer (-), buzzer (+) -> 5V.
+          collector -> buzzer (-), buzzer (+) -> SOUND switch -> 5V.
+          SOUND switch (slide, SPDT): middle -> buzzer (+), one side -> 5V. Cuts sound in hardware.
+          POWER switch (slide, SPDT): middle -> D3, one side -> GND. GND side = off: screen dark,
+          voice stopped, ATmega in power-down sleep until it is switched back on.
 
-  Voice = "mumble speech" (no TTS): text types out on a letter timer, and the buzzer chirps once
-  per vowel group (~10/s). Each vowel has its own pitch step, so a line always sounds the same.
+  Voice = "mumble speech" (no TTS): text types out on a letter timer, and the buzzer speaks one
+  vowel blip per vowel group (~10/s). Each blip is a stored one-period vowel waveform (buzz + 3
+  formants, fitted to the reference voice) played at any pitch through a 62.5 kHz PWM "DAC".
+  Text can stream in like LLM tokens: it is spoken as it arrives and the pace follows the backlog.
   Pitch drifts down through a phrase and resets at punctuation; ? rises, ! starts high, ... fades,
   CAPS shouts. The mouth opens on the vowel while it sounds, and each phrase's words set the face.
 
@@ -15,7 +20,8 @@
     hello there!     speaks the text: mouth shape per letter, cues on ! ? and mood words
     :happy  :sad     sets the resting face (:list prints every name)
     :sleep  :wake    sleep / wake
-    :mute  :unmute   buzzer off / on        :pitch 220   voice base pitch in Hz
+    :mute  :unmute   buzzer off / on        :pitch 130   voice base pitch in Hz
+    :voice guard|default|woman|child|old   character voice presets
   It plays a demo script until the first line arrives. Lines over 127 chars are cut.
   Every spoken line is echoed to Serial as "> text" while it types (a live caption).
 
@@ -26,8 +32,10 @@
   to settle, so ~8-12 face changes per second is the useful ceiling.
 */
 #include <LiquidCrystal_I2C.h>
+#include <avr/sleep.h>
 
 #define BUZZER 9
+#define PWR_SW 3
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
@@ -152,59 +160,87 @@ const char DEMO[] PROGMEM = "hello! i am glyph, a face for this little screen.|:
                             ":love|i love tiny pixels.|:angry|do not unplug me!|:dizzy|whoa...|"
                             ":sad|sorry, that was a lot.|:excited|WOW! can you hear me? type to me in the serial box...|:idle";
 
-// vowel -> pitch step (% of voice, a musical step apart) and mouth shape
+// vowel -> which VOX waveform plays (the vowel picks the sound, never the pitch) and mouth shape
 const char VOWELS[] = "aeiouy";
-const byte V_STEP[] = {100, 112, 126, 89, 84, 119};
 const byte V_MOUTH[] = {V_OPEN, V_WIDE, V_WIDE, OH, OH, V_WIDE};
-const int HUM[] = {392, 440, 349};
+const int HUM[] = {196, 220, 175};
 
-// ---- buzzer voice: Timer1 hardware PWM on D9 (OC1A) ----
-// Pitch = ICR1, loudness = duty (OCR1A). One interrupt per wave period runs the envelope
-// (swell 30 %, hold, release 30 %: measured peak at ~30-40 % in the reference), a +-1.6 % random wobble per period (breath), a ~40 ms
-// glide into each new pitch, and the question slide. A note that starts while one is still
-// sounding re-swells from 40 % instead of silence: legato babble, not beeps. It runs off the CPU's main path, so LCD bus stalls never chop the sound.
+// tilt k 0.505, mean tilt 39.2 dB (target 39.2)
+const int8_t VOX[6][128] PROGMEM = {  // one period per vowel, "aeiouy", made by tools/make_vowels.py
+  {-11, -4, 2, 9, 16, 27, 39, 52, 64, 72, 74, 71, 63, 52, 40, 29, 20, 13, 9, 8, 8, 9, 9, 8, 6, 4, 5, 8, 14, 22, 31, 41, 49, 54, 57, 56, 51, 45, 38, 31, 26, 21, 17, 12, 7, 1, -6, -13, -19, -25, -29, -30, -29, -26, -22, -19, -18, -21, -26, -35, -44, -54, -63, -71, -78, -82, -86, -89, -93, -97, -101, -104, -106, -102, -87, -59, -19, 28, 72, 105, 124, 127, 119, 104, 84, 63, 43, 26, 14, 7, 0, -11, -27, -49, -72, -91, -102, -103, -94, -77, -53, -26, 1, 25, 42, 51, 54, 52, 51, 51, 53, 55, 56, 52, 44, 32, 16, -4, -25, -45, -60, -68, -67, -61, -50, -38, -28, -19},  // a
+  {48, 47, 42, 35, 26, 18, 11, 7, 3, 1, -1, -2, -5, -7, -8, -5, -1, 6, 12, 19, 25, 31, 36, 41, 47, 54, 61, 67, 71, 73, 73, 73, 71, 69, 67, 65, 62, 56, 49, 41, 33, 25, 18, 12, 6, 0, -6, -13, -19, -25, -28, -31, -32, -34, -35, -38, -43, -48, -53, -58, -62, -66, -71, -77, -83, -91, -99, -106, -112, -117, -121, -125, -127, -123, -108, -85, -59, -37, -21, -7, 6, 20, 34, 51, 70, 88, 99, 102, 97, 91, 85, 79, 74, 68, 61, 51, 35, 15, -5, -21, -32, -40, -46, -53, -58, -65, -71, -77, -77, -71, -62, -51, -41, -32, -24, -17, -9, 0, 12, 25, 37, 45, 49, 51, 51, 50, 50, 49},  // e
+  {-49, -47, -46, -45, -41, -35, -28, -22, -16, -11, -5, 2, 9, 18, 26, 34, 40, 45, 51, 57, 64, 70, 75, 79, 82, 83, 85, 87, 89, 89, 89, 87, 84, 81, 78, 75, 72, 67, 62, 56, 50, 44, 38, 32, 26, 20, 13, 6, 0, -6, -11, -16, -21, -27, -32, -38, -44, -50, -55, -60, -65, -71, -78, -84, -89, -95, -100, -105, -110, -115, -120, -124, -127, -125, -117, -107, -99, -94, -90, -83, -72, -59, -45, -31, -19, -10, -3, 7, 19, 33, 44, 52, 58, 63, 66, 70, 75, 80, 83, 82, 78, 74, 71, 68, 65, 62, 56, 49, 39, 30, 23, 18, 12, 5, -3, -12, -20, -26, -31, -35, -37, -41, -46, -50, -52, -53, -52, -51},  // i
+  {33, 29, 26, 23, 20, 17, 14, 11, 8, 5, 2, -1, -3, -6, -8, -9, -10, -10, -9, -7, -4, 0, 5, 10, 17, 23, 30, 37, 44, 50, 55, 59, 62, 64, 64, 62, 59, 55, 50, 43, 36, 28, 20, 12, 4, -3, -10, -16, -21, -25, -28, -30, -31, -31, -31, -30, -29, -28, -27, -27, -28, -29, -32, -35, -39, -44, -50, -57, -64, -71, -78, -84, -90, -94, -97, -96, -93, -85, -74, -60, -43, -24, -2, 20, 43, 65, 84, 101, 114, 123, 127, 126, 120, 110, 95, 77, 56, 34, 11, -12, -34, -53, -69, -82, -91, -96, -98, -95, -89, -80, -69, -56, -42, -28, -14, -1, 11, 21, 29, 36, 40, 43, 44, 44, 43, 41, 39, 36},  // o
+  {-51, -50, -48, -45, -42, -37, -30, -23, -15, -7, 2, 11, 19, 28, 36, 43, 49, 55, 60, 64, 68, 72, 75, 78, 81, 83, 85, 87, 88, 88, 87, 86, 83, 80, 76, 71, 66, 60, 53, 47, 40, 34, 28, 22, 16, 11, 5, 0, -5, -9, -14, -18, -23, -27, -31, -35, -40, -44, -48, -52, -57, -61, -66, -72, -77, -83, -88, -94, -100, -106, -111, -117, -121, -125, -127, -127, -123, -116, -106, -94, -79, -63, -47, -30, -13, 3, 17, 29, 39, 46, 52, 57, 61, 64, 66, 69, 71, 73, 76, 78, 80, 80, 79, 77, 73, 67, 59, 51, 40, 30, 18, 7, -3, -12, -20, -27, -33, -37, -41, -43, -45, -46, -47, -48, -49, -50, -51, -51},  // u
+  {-51, -48, -46, -44, -42, -37, -30, -23, -19, -15, -7, 3, 10, 15, 20, 29, 39, 46, 50, 55, 63, 70, 74, 77, 80, 84, 87, 89, 89, 89, 89, 89, 87, 84, 80, 77, 74, 70, 64, 57, 52, 48, 42, 35, 27, 21, 16, 10, 2, -5, -10, -15, -20, -27, -33, -39, -44, -49, -55, -62, -68, -73, -78, -85, -92, -98, -102, -107, -112, -119, -123, -126, -127, -122, -113, -108, -109, -106, -90, -71, -65, -66, -56, -33, -15, -11, -10, 5, 26, 38, 39, 42, 54, 67, 72, 72, 74, 78, 81, 82, 81, 77, 72, 70, 70, 65, 54, 45, 41, 40, 31, 17, 8, 6, 3, -7, -20, -26, -27, -30, -38, -45, -48, -47, -48, -51, -53, -53},  // y
+};
+
+// ---- buzzer voice: wavetable synth -> Timer1 8-bit PWM at 62.5 kHz on D9 ----
+// Timer2 interrupts at 16 kHz. Each sample reads the vowel table at a phase step set by the pitch
+// (pitch-shifting the stored wave moves its formants too, like resampling a recorded clip), adds
+// breath noise and scales by the envelope. Every 64 samples (4 ms) it steps the envelope
+// (swell 30 %, hold, release 30 %), the ~40 ms glide, the question slide and a +-1.5 % pitch wobble.
+// A note that starts while one is sounding re-swells from 40 %: legato babble, not beeps.
 // SIM-REPLACE-BEGIN (the lab swaps this block for the same model in WebAudio)
-volatile uint16_t vTop, vTarget, vLen, vPos, vA, vR;
-volatile int16_t vSlide;
-volatile uint8_t vSeed = 1;
+volatile uint32_t vPhase, vInc, vBase, vTarget;  // 16.16 table phase; step per sample
+volatile uint16_t vLen, vPos, vA, vR;             // note in 4 ms ticks
+volatile uint8_t vEnv, vSub, vVowel, vSeed = 1;
+volatile bool vRise;
 
-void voiceStop() { TIMSK1 = 0; TCCR1A = 0; TCCR1B = 0; digitalWrite(BUZZER, LOW); }
+void voiceStop() { TIMSK2 = 0; TCCR2B = 0; TCCR1A = 0; TCCR1B = 0; digitalWrite(BUZZER, LOW); }
 
-void voiceStart(long freq, int ms, bool rise) {
-  uint16_t top = 2000000UL / freq;             // Timer1 at 2 MHz (prescaler 8)
-  uint16_t len = freq * ms / 1000;              // note length in wave periods
+void voiceStart(long freq, int ms, bool rise, byte vowelIdx) {
+  uint32_t inc = (uint32_t)freq * 524288UL / 1000;   // freq * 128 * 65536 / 16000
+  uint16_t len = ms / 4;
   noInterrupts();
-  bool legato = TIMSK1;                        // previous note still sounding
-  vTarget = top;
-  if (!legato) vTop = top;
+  bool legato = TIMSK2;
+  vTarget = inc;
+  if (!legato) { vBase = inc; vInc = inc; vPhase = 0; vEnv = 0; }
+  vVowel = vowelIdx; vRise = rise; vSub = 0;
   vLen = len; vA = len * 3 / 10; vR = len - len * 3 / 10;
   vPos = legato ? vA * 2 / 5 : 0;
-  vSlide = rise ? -(int16_t)(top / 12) : 0;
-  if (legato) { interrupts(); return; }
-  ICR1 = top; OCR1A = 0; TCNT1 = 0;
-  TCCR1A = _BV(COM1A1) | _BV(WGM11);           // fast PWM, TOP = ICR1, output on D9
-  TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS11);
-  TIMSK1 = _BV(TOIE1);
+  if (!legato) {
+    TCCR1A = _BV(COM1A1) | _BV(WGM10); TCCR1B = _BV(WGM12) | _BV(CS10);   // 8-bit fast PWM, 62.5 kHz
+    OCR1A = 0;
+    TCCR2A = _BV(WGM21); TCCR2B = _BV(CS21); OCR2A = 124;                  // CTC, 16 kHz
+    TIMSK2 = _BV(OCIE2A);
+  }
   interrupts();
 }
 
-ISR(TIMER1_OVF_vect) {
+ISR(TIMER2_COMPA_vect) {
+  vPhase += vInc;
+  int8_t w = pgm_read_byte(&VOX[vVowel][(vPhase >> 16) & 127]);
+  vSeed ^= vSeed << 3; vSeed ^= vSeed >> 5; vSeed ^= vSeed << 1;          // xorshift8
+  int8_t n = vSeed;
+  int16_t mix = w - (w >> 3) + (n >> 3) - (n >> 5);                        // ~10 dB breath
+  OCR1A = ((uint16_t)vEnv * (uint16_t)(128 + mix)) >> 8;                   // offset swells too: no pop
+  if (++vSub < 64) return;
+  vSub = 0;
   uint16_t p = vPos++;
   if (p >= vLen) { voiceStop(); return; }
-  uint8_t env = p < vA ? (uint32_t)255 * p / vA : (p > vR ? (uint32_t)255 * (vLen - p) / (vLen - vR) : 255);
-  if (vSlide && (p & 31) == 31) vTarget += vSlide;              // question: word slides up
-  vTop += ((int16_t)(vTarget - vTop)) / 8;                     // glide
-  vSeed ^= vSeed << 3; vSeed ^= vSeed >> 5; vSeed ^= vSeed << 1;   // xorshift8
-  uint16_t top = vTop + (((int16_t)(int8_t)vSeed * (int16_t)(vTop >> 6)) >> 7);
-  ICR1 = top;
-  OCR1A = ((uint32_t)top * env) >> 9;                           // duty 0..50 %
+  vEnv = p < vA ? (uint32_t)255 * p / vA : (p > vR ? (uint32_t)255 * (vLen - p) / (vLen - vR) : 255);
+  if (vRise) vTarget += vTarget / 160;                                     // question: word slides up
+  vBase += ((int32_t)(vTarget - vBase)) / 8;                               // glide
+  vInc = vBase + (((int32_t)(int8_t)vSeed * (int32_t)(vBase >> 6)) >> 7);  // wobble
 }
+
+void sleepUntilOn() {          // power-down; a pin change on D3 wakes us
+  Serial.flush();
+  PCICR |= _BV(PCIE2); PCMSK2 |= _BV(PCINT19);
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  while (digitalRead(PWR_SW) == LOW) sleep_mode();
+  PCMSK2 &= ~_BV(PCINT19);
+}
+ISR(PCINT2_vect) {}
 // SIM-REPLACE-END
 
 // ---- state ----
 #define MAXLEN 128
 char say[MAXLEN];               // line being spoken
 byte sayLen = 0, sayPos = 0;
+bool talking = false, lineOpen = false, needPhrase = false, powered = true;
+unsigned long lastRx = 0;
 char inLine[MAXLEN];            // line arriving on Serial
 byte inLen = 0;
 int8_t expr = E_IDLE;           // resting face
@@ -220,7 +256,8 @@ byte hummNote = 3;
 unsigned long lastInput = 0, nextChar = 0, demoAt = 0;
 int8_t viseme = -1;             // mouth override (talking), -1 = expression mouth
 int demoPos = 0;                // offset into DEMO
-int voiceBase = 220;            // Hz: a low hum; the square's harmonics ring the buzzer's ~2.7 kHz resonance
+int voiceBase = 130;            // Hz: the reference voices' median F0
+bool wobble = false;
 byte phraseK = 0;               // syllables into the current phrase (pitch drifts down)
 bool phraseHigh = false, fading = false;
 long sylFreq = 0;
@@ -398,54 +435,62 @@ bool wordIs(byte pos, bool shout) {   // shout: whole word in CAPS; else: word e
   return true;
 }
 
-void note(long f, unsigned long now, int len, int8_t mouth, bool rise) {
+void note(long f, unsigned long now, int len, int8_t mouth, bool rise, byte v) {
   sylFreq = f; sylStart = now; sylEnd = now + len; sylViseme = mouth;
-  if (!muted) voiceStart(f, len, rise);
+  if (!muted) voiceStart(f, len, rise, v);
 }
 
 void startSyllable(byte pos, int8_t v, unsigned long now) {
   long f = (long)voiceBase * ex(mood, 6) / 100;
-  f = f * V_STEP[v] / 100;
+  if (wobble) {                                  // old voice: slow steady ~2 Hz wobble, +-4 %
+    int tri = now % 500; tri = tri < 250 ? tri : 500 - tri;
+    f = f + f * (tri - 125) * 4 / 12500;
+  }
   f = f * (100 - min(phraseK * 3, 21)) / 100;   // the tune drifts down through the phrase
   phraseK++;
   if (phraseHigh) f = f * 120 / 100;
   if (fading) f = f * 85 / 100;
   if (wordIs(pos, true)) f = f * 130 / 100;
   f = f + f * random(-3, 4) / 100;               // no two buzzes alike
-  note(f, now, (fading ? 100 : 160) * ex(mood, 7) / 100, V_MOUTH[v], wordIs(pos, false));   // longer than the gap: babble
+  note(f, now, (fading ? 100 : 160) * ex(mood, 7) / 100, V_MOUTH[v], wordIs(pos, false), v);   // longer than the gap: babble
 }
 
 void tickVoice(unsigned long now) {   // mouth follows the note's envelope; the timer plays it
-  if (sylFreq > 0 && now >= sylEnd) { sylFreq = 0; if (sayLen == 0) viseme = -1; }
+  if (sylFreq > 0 && now >= sylEnd) { sylFreq = 0; if (!talking) viseme = -1; }
   if (sylFreq > 0) {
     unsigned long t = now - sylStart, len = sylEnd - sylStart;
     bool partOpen = t < len * 3 / 10 || t > len * 7 / 10;     // swell / release
     viseme = sylViseme < 0 ? -1 : (partOpen ? V_SMALL : sylViseme);
-  } else if (sayLen > 0) {
-    viseme = sayPos > 0 && isalpha(say[sayPos - 1]) ? V_SMALL : FLAT;
+  } else if (talking) {
+    viseme = sayPos > 0 && sayPos == sayLen ? FLAT : (sayPos > 0 && isalpha(say[sayPos - 1]) ? V_SMALL : FLAT);
   }
 }
 
-void speak() {                   // inLine -> say
-  memcpy(say, inLine, inLen);
-  sayLen = inLen;
-  sayPos = 0;
-  mood = expr;
-  moodUntil = 0xFFFFFFFF;
-  nextChar = millis();
-  startPhrase(0);
-  Serial.print(F("> "));
+void hear(char c) {              // one character of speech arrives (stream or whole line)
+  if (!talking) {                // new utterance
+    talking = true; sayLen = sayPos = 0; needPhrase = true;
+    mood = expr; moodUntil = 0xFFFFFFFF; nextChar = millis();
+    Serial.print(F("> "));
+  }
+  if (sayLen == MAXLEN && sayPos > 0) {          // drop what was already said
+    for (byte i = sayPos; i < sayLen; i++) say[i - sayPos] = say[i];
+    sayLen -= sayPos; sayPos = 0;
+  }
+  if (sayLen < MAXLEN) say[sayLen++] = c;
 }
 
 void tickSpeech(unsigned long now) {
-  if (sayLen == 0 || now < nextChar) return;
-  if (sayPos >= sayLen) {        // finished: close mouth, hold the mood a moment
-    sayLen = 0;
-    viseme = -1;
-    moodUntil = now + 1500;
-    Serial.println();
+  if (!talking || now < nextChar) return;
+  if (sayPos >= sayLen) {        // caught up: wait for more, or finish when the stream goes quiet
+    if (now - lastRx > (lineOpen ? 1500 : 300)) {
+      talking = false; lineOpen = false;
+      viseme = -1;
+      moodUntil = now + 1500;
+      Serial.println();
+    }
     return;
   }
+  if (needPhrase) { startPhrase(sayPos); needPhrase = false; }
   char c = say[sayPos];
   int8_t v = vowel(c);
   if (v >= 0 && (sayPos == 0 || vowel(say[sayPos - 1]) < 0)) startSyllable(sayPos, v, now);
@@ -453,14 +498,16 @@ void tickSpeech(unsigned long now) {
   Serial.write(c);
   if (c == '!') { flash = E_SHOCK; flashUntil = now + 450; }
   if (c == '?') { flash = E_CONFUSED; flashUntil = now + 700; }
-  if (isEnd(c)) startPhrase(sayPos);
-  nextChar = now + charTime(c);
+  if (isEnd(c)) needPhrase = true;
+  int pace = 100;                // tokens pouring in faster than speech: talk faster (to 45 %)
+  if (now - lastRx < 300) pace = constrain(map(sayLen - sayPos, 8, 60, 100, 45), 45, 100);
+  nextChar = now + (long)charTime(c) * pace / 100;
   lastInput = now;
 }
 
 void tickHum(unsigned long now) {   // three soft notes on the same voice engine
-  if (asleep || sayLen > 0) { hummNote = 3; return; }
-  if (hummNote < 3 && now >= hummAt) { note(HUM[hummNote], now, 260, -1, false); hummNote++; hummAt = now + 300; }
+  if (asleep || talking) { hummNote = 3; return; }
+  if (hummNote < 3 && now >= hummAt) { note(HUM[hummNote], now, 260, -1, false, 4); hummNote++; hummAt = now + 300; }
 }
 
 // ---- input ----
@@ -485,16 +532,27 @@ int8_t findFace(bool list) {     // match inLine against NAMES in flash, or prin
   return -1;
 }
 
-void handleLine() {
-  unsigned long now = millis();
+void wake(unsigned long now) {
   lastInput = now;
   if (asleep) { asleep = false; flash = E_SHOCK; flashUntil = now + 600; }
-  if (inLine[0] != ':') { speak(); return; }
+}
+
+void handleCmd() {               // inLine holds ":word"
+  wake(millis());
   if (isCmd(PSTR("list"), false)) { findFace(true); return; }
   if (isCmd(PSTR("sleep"), false)) { asleep = true; return; }
   if (isCmd(PSTR("wake"), false)) return;
   if (isCmd(PSTR("mute"), false)) { muted = true; voiceStop(); return; }
   if (isCmd(PSTR("unmute"), false)) { muted = false; return; }
+  if (isCmd(PSTR("voice "), true)) {           // character presets: pitch (+ formants move with it)
+    wobble = false;
+    if (isCmd(PSTR("voice guard"), false)) voiceBase = 100;
+    else if (isCmd(PSTR("voice woman"), false)) voiceBase = 200;
+    else if (isCmd(PSTR("voice child"), false)) voiceBase = 260;
+    else if (isCmd(PSTR("voice old"), false)) { voiceBase = 115; wobble = true; }
+    else voiceBase = 130;
+    return;
+  }
   if (isCmd(PSTR("pitch "), true)) {
     int v = 0;
     for (byte i = 7; i < inLen; i++) if (isdigit(inLine[i])) v = v * 10 + (inLine[i] - '0');
@@ -507,14 +565,23 @@ void handleLine() {
   moodUntil = 0;
 }
 
-void readSerial() {
+void readSerial() {              // ":cmd" lines are commands; anything else is speech, live
   while (Serial.available() > 0) {
     char c = Serial.read();
-    if (c == '\n' || c == '\r') {
-      if (inLen > 0) { demo = false; handleLine(); }
-      inLen = 0;
-    } else if (inLen < MAXLEN) {
-      inLine[inLen++] = c;
+    unsigned long now = millis();
+    lastRx = now;
+    if (demo) { demo = false; talking = false; Serial.println(); }   // real input cuts the demo off
+    bool eol = c == '\n' || c == '\r';
+    if (inLen > 0) {             // inside a command
+      if (eol) { handleCmd(); inLen = 0; } else if (inLen < MAXLEN) inLine[inLen++] = c;
+    } else if (eol) {
+      lineOpen = false;          // utterance complete: finish as soon as it is spoken
+    } else if (c == ':' && !lineOpen) {
+      inLine[0] = c; inLen = 1;
+    } else {
+      wake(now);
+      lineOpen = true;
+      hear(c);
     }
   }
 }
@@ -533,31 +600,49 @@ void tickIdle(unsigned long now) {
     nextLook = now + (lookX == 0 ? random(2500, 6000) : random(600, 1800));
   }
   if (now >= bobAt) { bob = 1 - bob; bobAt = now + (bob ? 500 : random(2500, 4000)); }
-  if (now >= nextHum && sayLen == 0) { humUntil = now + 1500; hummAt = now; hummNote = 0; nextHum = now + random(20000, 40000); }
+  if (now >= nextHum && !talking) { humUntil = now + 1500; hummAt = now; hummNote = 0; nextHum = now + random(20000, 40000); }
 
   unsigned long idle = now - lastInput;
   if (!demo && !asleep && idle > 60000) asleep = true;
   if (!demo && !asleep && idle > 30000 && expr == E_IDLE) { mood = E_SLEEPY; moodUntil = now + 100; }
 }
 
-void tickDemo(unsigned long now) {   // feed the next '|' piece of DEMO as if it came from Serial
-  if (!demo || sayLen > 0 || now < demoAt) return;
+void tickDemo(unsigned long now) {   // play the next '|' piece of DEMO
+  if (!demo || talking || now < demoAt) return;
   int n = strlen_P(DEMO);
+  bool cmd = pgm_read_byte(&DEMO[demoPos]) == ':';
   inLen = 0;
   while (demoPos < n) {
     char c = pgm_read_byte(&DEMO[demoPos++]);
     if (c == '|') break;
-    inLine[inLen++] = c;
+    if (cmd) inLine[inLen++] = c; else hear(c);
   }
   if (demoPos >= n) demoPos = 0;
-  handleLine();
+  if (cmd) handleCmd();
   inLen = 0;
+  lastRx = now;
   demoAt = now + 900;
+}
+
+void tickPower() {               // POWER switch on D3: LOW = off
+  bool on = digitalRead(PWR_SW) == HIGH;
+  if (on == powered) return;
+  powered = on;
+  if (!on) {
+    voiceStop(); sylFreq = 0;
+    lcd.noDisplay(); lcd.noBacklight();
+    sleepUntilOn();
+  } else {
+    lcd.display(); lcd.backlight();
+    unsigned long now = millis();
+    flash = E_SHOCK; flashUntil = now + 600; lastInput = now;
+  }
 }
 
 void setup() {
   Serial.begin(9600);
   pinMode(BUZZER, OUTPUT);
+  pinMode(PWR_SW, INPUT_PULLUP);
   lcd.init();
   lcd.backlight();
   memset(cg, 255, sizeof(cg));   // force first upload
@@ -573,6 +658,8 @@ void setup() {
 }
 
 void loop() {
+  tickPower();
+  if (!powered) { delay(50); return; }
   unsigned long now = millis();
   readSerial();
   tickDemo(now);
