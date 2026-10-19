@@ -87,6 +87,28 @@ Non-streaming API? `reveal(g, fullText)` plays it back word-by-word so the face 
 - **Personalities** — `sleepy` `hyper` `shy` `sassy` (data-only presets)
 - Respects `prefers-reduced-motion` — static readable face, no animation
 
+## GLYPH-LCD — the face on real hardware
+
+[`lcd/glyph_lcd/glyph_lcd.ino`](lcd/glyph_lcd/glyph_lcd.ino) puts GLYPH on a **1602 I2C LCD** (HD44780 + PCF8574 backpack) driven by an Arduino Uno or clone. 19 faces from the kaomoji cast: `idle happy joy love sad cry shock angry annoyed smug excited dizzy sleepy sleep kiss tongue evil cute confused`.
+
+```
+LCD GND -> GND   VCC -> 5V   SDA -> A4   SCL -> A5      library: LiquidCrystal_I2C
+```
+
+Talk to it over Serial (9600 baud, newline):
+
+| send | does |
+|---|---|
+| `hello there!` | speaks: a mouth shape per letter (a/h open, e/i wide, o/u round, m/b/p closed), pauses on `,` `.`, flashes shock on `!` and confused on `?`, picks a mood from words (love, sorry, wow, haha...) |
+| `:happy` | sets the resting face (`:list` prints all) |
+| `:sleep` / `:wake` | sleep / wake |
+
+On its own it blinks (sometimes twice), looks around, breathes (1 px bob), hums, turns sleepy after 30 s and sleeps after 60 s. Until the first line arrives it plays a demo.
+
+**How it fits on 16x2:** each eye is 2 cells (10x8 px) on row 0 and the mouth is 2 cells on row 1, which uses 6 of the 8 custom-character (CGRAM) slots. The other 2 hold effects (tears, anger mark, blush, hearts, note). The text on screen never changes. Animation works by rewriting CGRAM, and only the slots that changed get sent.
+
+**Frame budget:** one CGRAM slot costs ~13 ms on the 100 kHz PCF8574 bus, and STN crystals take ~100-200 ms to settle. In practice that means ~8-12 face changes per second. New faces are rows of 10-bit numbers in `EYES[]` / `MOUTHS[]` plus one line in `EX[]`. Bitmaps live in `PROGMEM`: 40% flash and 53% RAM on an ATmega328P.
+
 ## API
 
 | Call | Effect |
