@@ -22,6 +22,7 @@
     :sleep  :wake    sleep / wake
     :mute  :unmute   buzzer off / on        :pitch 130   voice base pitch in Hz
     :voice guard|default|woman|child|old   character voice presets
+    :rate 20         talk as if text arrived at 20 tokens/s (0 = normal); streamed text sets its own pace
   It plays a demo script until the first line arrives. Lines over 127 chars are cut.
   Every spoken line is echoed to Serial as "> text" while it types (a live caption).
 
@@ -242,6 +243,7 @@ byte sayLen = 0, sayPos = 0;
 bool talking = false, lineOpen = false, needPhrase = false, powered = true;
 unsigned long lastRx = 0, firstRx = 0;
 int pace = 100;                 // % of normal letter time, follows how fast text arrives
+int ratePace = 100;             // pace for text that isn't streaming (whole lines, demo): set by :rate
 byte rxCount = 0;
 char inLine[MAXLEN];            // line arriving on Serial
 byte inLen = 0;
@@ -471,7 +473,7 @@ void tickVoice(unsigned long now) {   // mouth follows the note's envelope; the 
 void hear(char c) {              // one character of speech arrives (stream or whole line)
   unsigned long now = millis();
   if (!talking) {                // new utterance
-    talking = true; sayLen = sayPos = 0; needPhrase = true; firstRx = now; rxCount = 0; pace = 100;
+    talking = true; sayLen = sayPos = 0; needPhrase = true; firstRx = now; rxCount = 0; pace = ratePace;
     mood = expr; moodUntil = 0xFFFFFFFF; nextChar = millis();
     Serial.print(F("> "));
   }
@@ -484,9 +486,11 @@ void hear(char c) {              // one character of speech arrives (stream or w
   unsigned long span = now - firstRx;
   if (span >= 30 && rxCount > 1) {   // a stream (a whole line arrives as one ~instant burst: keep 100)
     long g = span / (rxCount - 1);   // ms per arriving char; speech is ~75
-    pace = constrain(icbrt(g * 1000000 / 75), 25, 160);   // 100 * (g/75)^(1/3): 5 tok/s ~87 %, 20 ~55 %, 100 ~32 %
+    pace = paceFor(g * 1000);      // 5 tok/s ~87 %, 20 ~55 %, 100 ~32 %
   }
 }
+
+int paceFor(long usPerChar) { return constrain(icbrt(usPerChar * 1000 / 75), 25, 160); }   // 100 * (g/75 ms)^(1/3)
 
 int icbrt(long v) { int r = 0; while (r < 161 && (long)(r + 1) * (r + 1) * (r + 1) <= v) r++; return r; }   // capped at 161: <= 161 steps
 
@@ -548,6 +552,14 @@ void wake(unsigned long now) {
 }
 
 void handleCmd() {               // inLine holds ":word"
+  if (isCmd(PSTR("rate "), true)) {            // :rate N  tokens/s for non-streamed text (0 = normal)
+    long n = 0;
+    for (byte i = 6; i < inLen; i++) if (isdigit(inLine[i])) n = n * 10 + (inLine[i] - '0');
+    ratePace = n > 0 ? paceFor(250000 / n) : 100;   // ~4 chars per token
+    pace = ratePace;
+    return;
+  }
+  demo = false;                  // any other command takes over from the demo
   wake(millis());
   if (isCmd(PSTR("list"), false)) { findFace(true); return; }
   if (isCmd(PSTR("sleep"), false)) { asleep = true; return; }
@@ -580,7 +592,6 @@ void readSerial() {              // ":cmd" lines are commands; anything else is 
     char c = Serial.read();
     unsigned long now = millis();
     lastRx = now;
-    if (demo) { demo = false; talking = false; Serial.println(); }   // real input cuts the demo off
     bool eol = c == '\n' || c == '\r';
     if (inLen > 0) {             // inside a command
       if (eol) { handleCmd(); inLen = 0; } else if (inLen < MAXLEN) inLine[inLen++] = c;
@@ -589,6 +600,7 @@ void readSerial() {              // ":cmd" lines are commands; anything else is 
     } else if (c == ':' && !lineOpen) {
       inLine[0] = c; inLen = 1;
     } else {
+      if (demo) { demo = false; talking = false; Serial.println(); }   // real speech cuts the demo off
       wake(now);
       lineOpen = true;
       hear(c);
@@ -628,7 +640,7 @@ void tickDemo(unsigned long now) {   // play the next '|' piece of DEMO
     if (cmd) inLine[inLen++] = c; else hear(c);
   }
   if (demoPos >= n) demoPos = 0;
-  if (cmd) handleCmd();
+  if (cmd) { handleCmd(); demo = true; }   // the demo's own face changes don't end it
   inLen = 0;
   lastRx = now;
   demoAt = now + 900;
