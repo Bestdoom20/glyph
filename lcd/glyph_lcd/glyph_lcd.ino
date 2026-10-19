@@ -484,11 +484,11 @@ void hear(char c) {              // one character of speech arrives (stream or w
   unsigned long span = now - firstRx;
   if (span >= 30 && rxCount > 1) {   // a stream (a whole line arrives as one ~instant burst: keep 100)
     long g = span / (rxCount - 1);   // ms per arriving char; speech is ~75
-    pace = constrain(isqrt(g * 10000 / 75), 30, 160);
+    pace = constrain(icbrt(g * 1000000 / 75), 25, 160);   // 100 * (g/75)^(1/3): 5 tok/s ~87 %, 20 ~55 %, 100 ~32 %
   }
 }
 
-int isqrt(long v) { int r = 0; while ((long)(r + 1) * (r + 1) <= v) r++; return r; }   // v < ~700k: <= ~830 steps
+int icbrt(long v) { int r = 0; while (r < 161 && (long)(r + 1) * (r + 1) * (r + 1) <= v) r++; return r; }   // capped at 161: <= 161 steps
 
 void tickSpeech(unsigned long now) {
   if (!talking || now < nextChar) return;
@@ -510,7 +510,7 @@ void tickSpeech(unsigned long now) {
   if (c == '!') { flash = E_SHOCK; flashUntil = now + 450; }
   if (c == '?') { flash = E_CONFUSED; flashUntil = now + 700; }
   if (isEnd(c)) needPhrase = true;
-  int p = sayLen - sayPos > 100 ? 30 : pace;      // buffer nearly full: catch up
+  int p = sayLen - sayPos > 100 ? 25 : pace;      // buffer nearly full: catch up
   nextChar = now + (long)charTime(c) * p / 100;
   lastInput = now;
 }
